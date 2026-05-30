@@ -10,6 +10,16 @@ import openpyxl
 from openpyxl.utils import column_index_from_string
 import xlrd
 
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
 class DailyReportCheckerApp:
     def __init__(self, root):
         self.root = root
@@ -17,6 +27,14 @@ class DailyReportCheckerApp:
         self.root.geometry("900x700")
         self.root.minsize(800, 550)
         
+        # アイコンの設定
+        icon_path = resource_path("icon.ico")
+        if os.path.exists(icon_path):
+            try:
+                self.root.iconbitmap(icon_path)
+            except tk.TclError:
+                pass # Linux等、iconbitmapが非対応の環境ではスキップ
+
         # 起動時にウィンドウを最大化
         try:
             self.root.state('zoomed')
