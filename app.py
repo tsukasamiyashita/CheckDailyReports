@@ -485,19 +485,15 @@ class DailyReportCheckerApp:
                 is_kat_empty = (kat_val == "" or kat_val == "None" or kat_val == "0")
                 is_sag_empty = (sag_val == "" or sag_val == "None" or sag_val == "0")
                 
-                if is_kat_empty or is_sag_empty:
+                # 型枠コード、あるいは作業コードの「両方とも」が未入力の場合にエラーとする
+                if is_kat_empty and is_sag_empty:
                     cell_pos_str = f"{xlrd.formula.colname(curr_mng_col)}{r + 1}"
-                    empty_items = []
-                    if is_kat_empty:
-                        empty_items.append("型枠コード")
-                    if is_sag_empty:
-                        empty_items.append("作業コード")
                         
                     errors.append({
                         "sheet": sheet_name,
                         "cell": cell_pos_str,
                         "type": "コード未入力エラー",
-                        "detail": f"管理No '{mng_val}' が指定されていますが、{'と'.join(empty_items)}が入力されていません。"
+                        "detail": f"管理No '{mng_val}' が指定されていますが、型枠コードと作業コードの両方が入力されていません。"
                     })
 
     # ------------------------------------------
@@ -559,19 +555,15 @@ class DailyReportCheckerApp:
                 is_kat_empty = (kat_val == "" or kat_val == "None" or kat_val == "0")
                 is_sag_empty = (sag_val == "" or sag_val == "None" or sag_val == "0")
                 
-                if is_kat_empty or is_sag_empty:
+                # 型枠コード、あるいは作業コードの「両方とも」が未入力の場合にエラーとする
+                if is_kat_empty and is_sag_empty:
                     cell_pos_str = f"{openpyxl.utils.get_column_letter(curr_mng_col + 1)}{r_idx + 1}"
-                    empty_items = []
-                    if is_kat_empty:
-                        empty_items.append("型枠コード")
-                    if is_sag_empty:
-                        empty_items.append("作業コード")
                         
                     errors.append({
                         "sheet": sheet_name,
                         "cell": cell_pos_str,
                         "type": "コード未入力エラー",
-                        "detail": f"管理No '{mng_val}' が指定されていますが、{'と'.join(empty_items)}が入力されていません。"
+                        "detail": f"管理No '{mng_val}' が指定されていますが、型枠コードと作業コードの両方が入力されていません。"
                     })
 
     # ------------------------------------------
