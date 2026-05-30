@@ -7,14 +7,22 @@ from datetime import datetime
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import openpyxl
+from openpyxl.utils import column_index_from_string
 import xlrd
 
 class DailyReportCheckerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("CheckDailyReports-v1.0.0")
-        self.root.geometry("900x600")
-        self.root.minsize(800, 500)
+        self.root.geometry("900x700")
+        self.root.minsize(800, 550)
+        
+        # 起動時にウィンドウを最大化
+        try:
+            self.root.state('zoomed')
+        except tk.TclError:
+            # Linux等の環境でzoomedがサポートされていない場合のフォールバック
+            self.root.attributes('-zoomed', True)
 
         # スタイル設定
         self.style = ttk.Style()
@@ -29,6 +37,15 @@ class DailyReportCheckerApp:
         
         # 状態保持変数
         self.target_dir = tk.StringVar()
+        
+        # 行・列の設定変数
+        self.start_row_var = tk.StringVar(value="8")
+        self.end_row_var = tk.StringVar(value="158")
+        self.mng_col_var = tk.StringVar(value="B")
+        self.kat_col_var = tk.StringVar(value="I") # デフォルトをIに変更
+        self.sag_col_var = tk.StringVar(value="K") # デフォルトをKに変更
+        self.tot_col_var = tk.StringVar(value="AR")
+        
         self.is_processing = False
         self.cancel_requested = False
 
@@ -70,6 +87,36 @@ class DailyReportCheckerApp:
 
         browse_btn = ttk.Button(folder_frame, text="参照...", command=self._browse_folder)
         browse_btn.pack(side=tk.RIGHT)
+
+        # 設定エリア
+        settings_frame = ttk.LabelFrame(main_frame, text=" 2. チェック設定 (対象の行と列) ", padding=10)
+        settings_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        row1_frame = ttk.Frame(settings_frame)
+        row1_frame.pack(fill=tk.X, pady=(0, 8))
+        tk.Label(row1_frame, text="チェック開始行:", bg=self.bg_color).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Entry(row1_frame, textvariable=self.start_row_var, width=5, font=("Helvetica", 10)).pack(side=tk.LEFT)
+        tk.Label(row1_frame, text="行目から", bg=self.bg_color).pack(side=tk.LEFT, padx=(5, 15))
+
+        tk.Label(row1_frame, text="チェック最終行:", bg=self.bg_color).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Entry(row1_frame, textvariable=self.end_row_var, width=5, font=("Helvetica", 10)).pack(side=tk.LEFT)
+        tk.Label(row1_frame, text="行目まで (空欄で最後まで)", bg=self.bg_color).pack(side=tk.LEFT, padx=(5, 0))
+
+        row2_frame = ttk.Frame(settings_frame)
+        row2_frame.pack(fill=tk.X)
+        tk.Label(row2_frame, text="列の指定 (アルファベット) :", bg=self.bg_color).pack(side=tk.LEFT, padx=(0, 10))
+        
+        tk.Label(row2_frame, text="管理No:", bg=self.bg_color).pack(side=tk.LEFT)
+        ttk.Entry(row2_frame, textvariable=self.mng_col_var, width=4, font=("Helvetica", 10)).pack(side=tk.LEFT, padx=(2, 10))
+
+        tk.Label(row2_frame, text="型枠:", bg=self.bg_color).pack(side=tk.LEFT)
+        ttk.Entry(row2_frame, textvariable=self.kat_col_var, width=4, font=("Helvetica", 10)).pack(side=tk.LEFT, padx=(2, 10))
+
+        tk.Label(row2_frame, text="作業:", bg=self.bg_color).pack(side=tk.LEFT)
+        ttk.Entry(row2_frame, textvariable=self.sag_col_var, width=4, font=("Helvetica", 10)).pack(side=tk.LEFT, padx=(2, 10))
+
+        tk.Label(row2_frame, text="合計:", bg=self.bg_color).pack(side=tk.LEFT)
+        ttk.Entry(row2_frame, textvariable=self.tot_col_var, width=4, font=("Helvetica", 10)).pack(side=tk.LEFT, padx=(2, 0))
 
         # 動作ボタンエリア
         btn_frame = ttk.Frame(main_frame)
@@ -124,7 +171,7 @@ class DailyReportCheckerApp:
         self.status_label.pack(fill=tk.X, side=tk.BOTTOM)
 
         # 結果表示エリア（リスト）
-        list_frame = ttk.LabelFrame(main_frame, text=" 2. チェック結果一覧 (エラー検出箇所) ", padding=10)
+        list_frame = ttk.LabelFrame(main_frame, text=" 3. チェック結果一覧 (エラー検出箇所) ", padding=10)
         list_frame.pack(fill=tk.BOTH, expand=True)
 
         # スクロールバー
@@ -159,10 +206,16 @@ class DailyReportCheckerApp:
         self.tree.column("sheet_name", width=100, anchor="center")
         self.tree.column("cell_pos", width=80, anchor="center")
         self.tree.column("error_type", width=120, anchor="center")
-        self.tree.column("detail", width=300, anchor="w")
+        self.tree.column("detail", width=400, anchor="w")
 
         # ダブルクリックイベント（詳細表示）
         self.tree.bind("<Double-1>", self._show_detail_popup)
+
+    def _col_to_index(self, col_str):
+        try:
+            return column_index_from_string(col_str.upper().strip()) - 1
+        except:
+            return -1
 
     def _browse_folder(self):
         selected = filedialog.askdirectory()
@@ -183,6 +236,33 @@ class DailyReportCheckerApp:
         if not os.path.exists(target):
             messagebox.showerror("エラー", "選択されたフォルダが存在しません。")
             return
+            
+        try:
+            start_row_val = int(self.start_row_var.get().strip())
+            if start_row_val < 1:
+                raise ValueError
+        except ValueError:
+            messagebox.showerror("エラー", "チェック開始行は1以上の半角数字で入力してください。")
+            return
+
+        end_row_str = self.end_row_var.get().strip()
+        end_row_val = None
+        if end_row_str:
+            try:
+                end_row_val = int(end_row_str)
+                if end_row_val < start_row_val:
+                    messagebox.showerror("エラー", "チェック最終行は開始行以上の数字を入力してください。")
+                    return
+            except ValueError:
+                messagebox.showerror("エラー", "チェック最終行は半角数字で入力してください。")
+                return
+                
+        cols_info = {
+            'mng': self._col_to_index(self.mng_col_var.get()),
+            'kat': self._col_to_index(self.kat_col_var.get()),
+            'sag': self._col_to_index(self.sag_col_var.get()),
+            'tot': self._col_to_index(self.tot_col_var.get())
+        }
 
         self.is_processing = True
         self.cancel_requested = False
@@ -194,10 +274,10 @@ class DailyReportCheckerApp:
             self.tree.delete(item)
 
         # スレッド起動
-        thread = threading.Thread(target=self._run_checker, args=(target,), daemon=True)
+        thread = threading.Thread(target=self._run_checker, args=(target, start_row_val, end_row_val, cols_info), daemon=True)
         thread.start()
 
-    def _run_checker(self, target_dir):
+    def _run_checker(self, target_dir, start_row_val, end_row_val, cols_info):
         # 対象ファイル収集 (xls, xlsx, xlsm)
         valid_extensions = (".xls", ".xlsx", ".xlsm")
         files_to_check = []
@@ -227,7 +307,7 @@ class DailyReportCheckerApp:
             )
 
             # チェック実施
-            errors = self._check_excel_file(filepath)
+            errors = self._check_excel_file(filepath, start_row_val, end_row_val, cols_info)
             if errors:
                 errors_found += len(errors)
                 self.root.after(0, self._add_errors_to_list, filepath, errors)
@@ -324,67 +404,18 @@ class DailyReportCheckerApp:
             return str(val)
         return str(val).strip()
 
-    def _find_code_columns(self, get_val_func, nrows, ncols):
-        """見出し行を特定し、管理No, 型枠, 作業コードの列番号を返す共通関数"""
-        col_mng_no = 1  # デフォルト B列
-        col_katawaku = 9  # デフォルト J列
-        col_sagyo = 11  # デフォルト L列
-        
-        mng_keywords = ["管理no", "管理番号", "管理№", "工事番号", "工事no", "工事№", "管no", "管理ナンバー"]
-        katawaku_keywords = ["型枠コード", "型枠cd", "型枠id", "型枠番号", "型枠"]
-        sagyo_keywords = ["作業コード", "作業cd", "作業id", "作業番号", "作業"]
-        
-        found_header = False
-        # パス1: 同一行に管理Noとコード群が揃っている本物の見出し行を探索
-        for r in range(min(nrows, 100)):
-            temp_mng = -1
-            temp_kat = -1
-            temp_sag = -1
-            for c in range(ncols):
-                val_str = get_val_func(r, c).lower().replace(" ", "").replace("　", "")
-                if not val_str:
-                    continue
-                    
-                if temp_mng == -1 and any(val_str == k or val_str.startswith(k) for k in mng_keywords + ["管理"]):
-                    temp_mng = c
-                if temp_kat == -1 and any(val_str == k or val_str.startswith(k) for k in katawaku_keywords):
-                    temp_kat = c
-                if temp_sag == -1 and any(val_str == k or val_str.startswith(k) for k in sagyo_keywords):
-                    temp_sag = c
-                    
-            if temp_mng != -1 and (temp_kat != -1 or temp_sag != -1):
-                col_mng_no = temp_mng
-                if temp_kat != -1: col_katawaku = temp_kat
-                if temp_sag != -1: col_sagyo = temp_sag
-                found_header = True
-                break
-                
-        # パス2: 揃っていない場合、管理Noが単独で存在する行を見出し行とする
-        if not found_header:
-            for r in range(min(nrows, 100)):
-                for c in range(ncols):
-                    val_str = get_val_func(r, c).lower().replace(" ", "").replace("　", "")
-                    if any(val_str == k or val_str.startswith(k) for k in mng_keywords + ["管理"]):
-                        col_mng_no = c
-                        found_header = True
-                        break
-                if found_header:
-                    break
-
-        return col_mng_no, col_katawaku, col_sagyo
-
     # ==========================================
     # エクセル解析エンジン (絶対保存・上書きしない)
     # ==========================================
-    def _check_excel_file(self, filepath):
+    def _check_excel_file(self, filepath, start_row_val, end_row_val, cols_info):
         errors = []
         ext = os.path.splitext(filepath)[1].lower()
 
         try:
             if ext == ".xls":
-                errors.extend(self._parse_xls(filepath))
+                errors.extend(self._parse_xls(filepath, start_row_val, end_row_val, cols_info))
             elif ext in (".xlsx", ".xlsm"):
-                errors.extend(self._parse_xlsx_xlsm(filepath))
+                errors.extend(self._parse_xlsx_xlsm(filepath, start_row_val, end_row_val, cols_info))
         except Exception as e:
             errors.append({
                 "sheet": "ファイル全体",
@@ -394,7 +425,7 @@ class DailyReportCheckerApp:
             })
         return errors
 
-    def _parse_xls(self, filepath):
+    def _parse_xls(self, filepath, start_row_val, end_row_val, cols_info):
         errors = []
         wb = xlrd.open_workbook(filepath, formatting_info=False)
         for sheet_index in range(wb.nsheets):
@@ -404,15 +435,14 @@ class DailyReportCheckerApp:
             if sheet.nrows == 0 or sheet.ncols == 0:
                 continue
 
-            # スキャン対象シートかどうかの検証
             if not self._should_check_sheet(sheet_name):
                 continue
 
             self._scan_sheet_data_xls(sheet, sheet_name, errors)
-            self._check_code_integrity_xls(sheet, sheet_name, errors)
+            self._check_code_integrity_xls(sheet, sheet_name, errors, start_row_val, end_row_val, cols_info)
         return errors
 
-    def _parse_xlsx_xlsm(self, filepath):
+    def _parse_xlsx_xlsm(self, filepath, start_row_val, end_row_val, cols_info):
         errors = []
         wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
         for sheet_name in wb.sheetnames:
@@ -421,12 +451,11 @@ class DailyReportCheckerApp:
             if sheet.max_row is None or sheet.max_row == 0:
                 continue
                 
-            # スキャン対象シートかどうかの検証
             if not self._should_check_sheet(sheet_name):
                 continue
 
             self._scan_sheet_data_xlsx(sheet, sheet_name, errors)
-            self._check_code_integrity_xlsx(sheet, sheet_name, errors)
+            self._check_code_integrity_xlsx(sheet, sheet_name, errors, start_row_val, end_row_val, cols_info)
             
         wb.close()
         return errors
@@ -434,22 +463,24 @@ class DailyReportCheckerApp:
     # ------------------------------------------
     # 管理Noと型枠/作業コードの未入力整合性検証 (.xls 用)
     # ------------------------------------------
-    def _check_code_integrity_xls(self, sheet, sheet_name, errors):
+    def _check_code_integrity_xls(self, sheet, sheet_name, errors, start_row_val, end_row_val, cols_info):
         nrows = sheet.nrows
         ncols = sheet.ncols
         
-        # 見出し列の確実な特定
-        col_mng_no, col_katawaku, col_sagyo = self._find_code_columns(
-            lambda r, c: self._get_clean_value(sheet.cell_value(r, c)), 
-            nrows, 
-            ncols
-        )
+        mng_idx = cols_info['mng']
+        kat_idx = cols_info['kat']
+        sag_idx = cols_info['sag']
+        tot_idx = cols_info['tot']
 
-        for r in range(nrows):
-            curr_mng_col = col_mng_no
+        # ユーザー指定の開始・終了行を強制適用 (0-indexed)
+        start_row = start_row_val - 1
+        end_row = end_row_val if end_row_val is not None else nrows
+        end_row = min(end_row, nrows)
+
+        for r in range(start_row, end_row):
             mng_val = ""
-            if curr_mng_col < ncols:
-                mng_val = self._get_clean_value(sheet.cell_value(r, curr_mng_col))
+            if 0 <= mng_idx < ncols:
+                mng_val = self._get_clean_value(sheet.cell_value(r, mng_idx))
                 
             is_valid_mng = False
             if mng_val and mng_val != "None" and mng_val != "":
@@ -460,66 +491,72 @@ class DailyReportCheckerApp:
                 elif len(mng_val) >= 4:
                     is_valid_mng = True
                         
-            # 自動探索フォールバック
-            if not is_valid_mng and ncols > 1:
-                max_search_col = min(9, ncols)
-                for temp_c in range(1, max_search_col):
-                    temp_val = self._get_clean_value(sheet.cell_value(r, temp_c))
-                    if temp_val and temp_val.isdigit():
-                        val_num = int(temp_val)
-                        if len(temp_val) >= 4 and not (40000 <= val_num <= 50000):
-                            mng_val = temp_val
-                            curr_mng_col = temp_c
-                            is_valid_mng = True
-                            break
+            # 合計値（実績）の算出（固定された指定列の値のみを見る）
+            total_num = 0.0
+            if 0 <= tot_idx < ncols:
+                total_val = self._get_clean_value(sheet.cell_value(r, tot_idx))
+                try:
+                    total_num = float(total_val)
+                except ValueError:
+                    pass
+                        
+            # 要件1: 管理Noが未入力で、合計（実績）が0ではない場合にエラー
+            if not is_valid_mng and total_num > 0:
+                col_letter = xlrd.formula.colname(mng_idx) if mng_idx >= 0 else "?"
+                cell_pos_str = f"{col_letter}{r + 1}"
+                errors.append({
+                    "sheet": sheet_name,
+                    "cell": cell_pos_str,
+                    "type": "管理No未入力エラー",
+                    "detail": f"作業実績（合計 {total_num}）が入力されていますが、管理Noが未入力です。"
+                })
                             
-            if is_valid_mng:
+            # 要件2: 管理Noが入力されている場合、コードの未入力チェック
+            elif is_valid_mng:
                 kat_val = ""
-                if col_katawaku < ncols:
-                    kat_val = self._get_clean_value(sheet.cell_value(r, col_katawaku))
+                if 0 <= kat_idx < ncols:
+                    kat_val = self._get_clean_value(sheet.cell_value(r, kat_idx))
                         
                 sag_val = ""
-                if col_sagyo < ncols:
-                    sag_val = self._get_clean_value(sheet.cell_value(r, col_sagyo))
+                if 0 <= sag_idx < ncols:
+                    sag_val = self._get_clean_value(sheet.cell_value(r, sag_idx))
                         
                 is_kat_empty = (kat_val == "" or kat_val == "None" or kat_val == "0")
                 is_sag_empty = (sag_val == "" or sag_val == "None" or sag_val == "0")
                 
                 # 型枠コード、あるいは作業コードの「両方とも」が未入力の場合にエラーとする
                 if is_kat_empty and is_sag_empty:
-                    cell_pos_str = f"{xlrd.formula.colname(curr_mng_col)}{r + 1}"
-                        
+                    col_letter = xlrd.formula.colname(mng_idx) if mng_idx >= 0 else "?"
+                    cell_pos_str = f"{col_letter}{r + 1}"
                     errors.append({
                         "sheet": sheet_name,
                         "cell": cell_pos_str,
                         "type": "コード未入力エラー",
-                        "detail": f"管理No '{mng_val}' が指定されていますが、型枠コードと作業コードの両方が入力されていません。"
+                        "detail": f"管理No '{mng_val}' が指定されていますが、型枠コードと作業コードの両方が未入力です。"
                     })
 
     # ------------------------------------------
     # 管理Noと型枠/作業コードの未入力整合性検証 (.xlsx 用)
     # ------------------------------------------
-    def _check_code_integrity_xlsx(self, sheet, sheet_name, errors):
-        rows = list(sheet.iter_rows(max_row=500, max_col=50, values_only=True))
-        if not rows:
-            return
-            
-        nrows = len(rows)
-        ncols = max(len(row) for row in rows) if nrows > 0 else 0
+    def _check_code_integrity_xlsx(self, sheet, sheet_name, errors, start_row_val, end_row_val, cols_info):
+        # 必要な範囲のみをロードするよう変更（高速化と範囲の正確化）
+        start_row = start_row_val
+        end_row_limit = end_row_val if end_row_val is not None else sheet.max_row
         
-        def _get_val(r, c):
-            if r < len(rows) and c < len(rows[r]):
-                return self._get_clean_value(rows[r][c])
-            return ""
+        mng_idx = cols_info['mng']
+        kat_idx = cols_info['kat']
+        sag_idx = cols_info['sag']
+        tot_idx = cols_info['tot']
 
-        # 見出し列の確実な特定
-        col_mng_no, col_katawaku, col_sagyo = self._find_code_columns(_get_val, nrows, ncols)
+        # 最大インデックスの計算
+        max_col_idx = max(mng_idx, kat_idx, sag_idx, tot_idx)
+        if max_col_idx < 0:
+            return # 列が指定されていない場合はスキップ
 
-        for r_idx, row in enumerate(rows):
-            curr_mng_col = col_mng_no
+        for r_idx, row in enumerate(sheet.iter_rows(min_row=start_row, max_row=end_row_limit, max_col=max_col_idx+1, values_only=True), start=start_row):
             mng_val = ""
-            if curr_mng_col < len(row):
-                mng_val = self._get_clean_value(row[curr_mng_col])
+            if 0 <= mng_idx < len(row):
+                mng_val = self._get_clean_value(row[mng_idx])
                 
             is_valid_mng = False
             if mng_val and mng_val != "None" and mng_val != "":
@@ -529,41 +566,49 @@ class DailyReportCheckerApp:
                         is_valid_mng = True
                 elif len(mng_val) >= 4:
                     is_valid_mng = True
-                        
-            # 自動探索フォールバック
-            if not is_valid_mng and len(row) > 1:
-                max_search_col = min(9, len(row))
-                for temp_c in range(1, max_search_col):
-                    temp_val = self._get_clean_value(row[temp_c])
-                    if temp_val and temp_val.isdigit():
-                        val_num = int(temp_val)
-                        if len(temp_val) >= 4 and not (40000 <= val_num <= 50000):
-                            mng_val = temp_val
-                            curr_mng_col = temp_c
-                            is_valid_mng = True
-                            break
                             
-            if is_valid_mng:
+            # 合計値（実績）の算出（固定された指定列の値のみを見る）
+            total_num = 0.0
+            if 0 <= tot_idx < len(row):
+                total_val = self._get_clean_value(row[tot_idx])
+                try:
+                    total_num = float(total_val)
+                except ValueError:
+                    pass
+                        
+            # 要件1: 管理Noが未入力で、合計（実績）が0ではない場合にエラー
+            if not is_valid_mng and total_num > 0:
+                col_letter = openpyxl.utils.get_column_letter(mng_idx + 1) if mng_idx >= 0 else "?"
+                cell_pos_str = f"{col_letter}{r_idx}"
+                errors.append({
+                    "sheet": sheet_name,
+                    "cell": cell_pos_str,
+                    "type": "管理No未入力エラー",
+                    "detail": f"作業実績（合計 {total_num}）が入力されていますが、管理Noが未入力です。"
+                })
+
+            # 要件2: 管理Noが入力されている場合、コードの未入力チェック
+            elif is_valid_mng:
                 kat_val = ""
-                if col_katawaku < len(row):
-                    kat_val = self._get_clean_value(row[col_katawaku])
+                if 0 <= kat_idx < len(row):
+                    kat_val = self._get_clean_value(row[kat_idx])
                         
                 sag_val = ""
-                if col_sagyo < len(row):
-                    sag_val = self._get_clean_value(row[col_sagyo])
+                if 0 <= sag_idx < len(row):
+                    sag_val = self._get_clean_value(row[sag_idx])
                         
                 is_kat_empty = (kat_val == "" or kat_val == "None" or kat_val == "0")
                 is_sag_empty = (sag_val == "" or sag_val == "None" or sag_val == "0")
                 
                 # 型枠コード、あるいは作業コードの「両方とも」が未入力の場合にエラーとする
                 if is_kat_empty and is_sag_empty:
-                    cell_pos_str = f"{openpyxl.utils.get_column_letter(curr_mng_col + 1)}{r_idx + 1}"
-                        
+                    col_letter = openpyxl.utils.get_column_letter(mng_idx + 1) if mng_idx >= 0 else "?"
+                    cell_pos_str = f"{col_letter}{r_idx}"
                     errors.append({
                         "sheet": sheet_name,
                         "cell": cell_pos_str,
                         "type": "コード未入力エラー",
-                        "detail": f"管理No '{mng_val}' が指定されていますが、型枠コードと作業コードの両方が入力されていません。"
+                        "detail": f"管理No '{mng_val}' が指定されていますが、型枠コードと作業コードの両方が未入力です。"
                     })
 
     # ------------------------------------------
