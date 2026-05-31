@@ -502,6 +502,7 @@ class DailyReportCheckerApp:
             self._scan_sheet_data_xlsx(sheet, sheet_name, errors)
             self._check_code_integrity_xlsx(sheet, sheet_name, errors, start_row_val, end_row_val, cols_info)
             self._check_time_multiples_xlsx(sheet, sheet_name, errors)
+            self._check_numeric_format_xlsx(sheet, sheet_name, errors, start_row_val, end_row_val, cols_info)
             
             # 基準テンプレート比較
             if sheet_name in self.template_cache:
@@ -509,6 +510,49 @@ class DailyReportCheckerApp:
             
         wb.close()
         return errors
+
+    # ------------------------------------------
+    # 空白か数値以外のフォーマット検証ロジック (.xlsx 用)
+    # ------------------------------------------
+    def _check_numeric_format_xlsx(self, sheet, sheet_name, errors, start_row_val, end_row_val, cols_info):
+        start_row = start_row_val
+        end_row_limit = end_row_val if end_row_val is not None else sheet.max_row
+        
+        mng_idx = cols_info['mng']
+        kat_idx = cols_info['kat']
+        sag_idx = cols_info['sag']
+        
+        # M(12) 〜 AQ(42)  ※0-indexed
+        m_to_aq_indices = list(range(12, 43))
+        
+        # チェック対象の列インデックスのセット
+        check_col_indices = set([mng_idx, kat_idx, sag_idx] + m_to_aq_indices)
+        check_col_indices = {c for c in check_col_indices if c >= 0}
+        
+        if not check_col_indices:
+            return
+            
+        max_col_idx = max(check_col_indices)
+        
+        for r_idx, row in enumerate(sheet.iter_rows(min_row=start_row, max_row=end_row_limit, max_col=max_col_idx+1, values_only=True), start=start_row):
+            for c_idx in check_col_indices:
+                if c_idx < len(row):
+                    val = row[c_idx]
+                    val_str = self._get_clean_value(val)
+                    if val_str == "" or val_str.lower() == "none":
+                        continue
+                    
+                    try:
+                        float(val_str)
+                    except ValueError:
+                        col_letter = openpyxl.utils.get_column_letter(c_idx + 1)
+                        cell_pos = f"{col_letter}{r_idx}"
+                        errors.append({
+                            "sheet": sheet_name,
+                            "cell": cell_pos,
+                            "type": "数値フォーマットエラー",
+                            "detail": f"空白か数値であるべきセルに、それ以外の値（'{val_str}'）が入力されています。"
+                        })
 
     # ------------------------------------------
     # テンプレート書き換え検証ロジック (除外セル判定)
@@ -638,7 +682,8 @@ class DailyReportCheckerApp:
         tot_idx = cols_info['tot']
 
         # 最大インデックスの計算
-        max_col_idx = max(mng_idx, kat_idx, sag_idx, tot_idx)
+        # C〜H列(インデックス2〜7)もチェックするため、max_col_idxが7以上になるように保証する
+        max_col_idx = max(mng_idx, kat_idx, sag_idx, tot_idx, 7)
         if max_col_idx < 0:
             return # 列が指定されていない場合はスキップ
 
@@ -665,6 +710,38 @@ class DailyReportCheckerApp:
                 except ValueError:
                     pass
                         
+            kat_val = ""
+            if 0 <= kat_idx < len(row):
+                kat_val = self._get_clean_value(row[kat_idx])
+                    
+            sag_val = ""
+            if 0 <= sag_idx < len(row):
+                sag_val = self._get_clean_value(row[sag_idx])
+                    
+            is_kat_empty = (kat_val == "" or kat_val == "None" or kat_val == "0")
+            is_sag_empty = (sag_val == "" or sag_val == "None" or sag_val == "0")
+
+            # C〜H列 (インデックス 2〜7) の空白以外チェック
+            c_to_h_has_value = False
+            for c_idx in range(2, 8):
+                if c_idx < len(row):
+                    val_str = self._get_clean_value(row[c_idx])
+                    if val_str != "" and val_str.lower() != "none":
+                        c_to_h_has_value = True
+                        break
+
+            # 新規要件: C,D,E,F,G,Hが空白以外で、B,I,Kが空白の場合にエラー
+            if c_to_h_has_value and not is_valid_mng and is_kat_empty and is_sag_empty:
+                col_letter = openpyxl.utils.get_column_letter(mng_idx + 1) if mng_idx >= 0 else "?"
+                cell_pos_str = f"{col_letter}{r_idx}"
+                errors.append({
+                    "sheet": sheet_name,
+                    "cell": cell_pos_str,
+                    "type": "必須項目未入力エラー",
+                    "detail": f"{r_idx}行目のC〜H列に記述がありますが、管理No(B)、型枠コード(I)、作業コード(K)がすべて未入力です。"
+                })
+                continue # 既存のエラーと重複しないようスキップ
+
             # 要件1: 管理Noが未入力で、合計（実績）が0ではない場合にエラー
             if not is_valid_mng and total_num > 0:
                 col_letter = openpyxl.utils.get_column_letter(mng_idx + 1) if mng_idx >= 0 else "?"
@@ -678,17 +755,6 @@ class DailyReportCheckerApp:
 
             # 要件2: 管理Noが入力されている場合、コードの未入力チェック
             elif is_valid_mng:
-                kat_val = ""
-                if 0 <= kat_idx < len(row):
-                    kat_val = self._get_clean_value(row[kat_idx])
-                        
-                sag_val = ""
-                if 0 <= sag_idx < len(row):
-                    sag_val = self._get_clean_value(row[sag_idx])
-                        
-                is_kat_empty = (kat_val == "" or kat_val == "None" or kat_val == "0")
-                is_sag_empty = (sag_val == "" or sag_val == "None" or sag_val == "0")
-                
                 # 型枠コード、あるいは作業コードの「両方とも」が未入力の場合にエラーとする
                 if is_kat_empty and is_sag_empty:
                     col_letter = openpyxl.utils.get_column_letter(mng_idx + 1) if mng_idx >= 0 else "?"
