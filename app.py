@@ -2,6 +2,7 @@
 import os
 import re
 import sys
+import json
 import threading
 from datetime import datetime
 import tkinter as tk
@@ -18,6 +19,23 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
 
     return os.path.join(base_path, relative_path)
+
+def get_app_data_dir():
+    """ 実行ファイルまたはスクリプトのあるディレクトリ配下の「CheckDailyReportsSettings」フォルダパスを取得し、なければ作成する """
+    if getattr(sys, 'frozen', False):
+        # PyInstaller環境 (.exe実行時)
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        # 通常のスクリプト実行時
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    target_dir = os.path.join(base_dir, "CheckDailyReportsSettings")
+    if not os.path.exists(target_dir):
+        try:
+            os.makedirs(target_dir)
+        except Exception as e:
+            print(f"Failed to create directory {target_dir}: {e}")
+    return target_dir
 
 class DailyReportCheckerApp:
     def __init__(self, root):
@@ -60,7 +78,13 @@ class DailyReportCheckerApp:
         self.cancel_requested = False
         self.template_cache = {} # テンプレートセルのキャッシュ
 
+        # 保存されているデフォルト設定の読み込み
+        self._load_config()
+
         self._build_ui()
+
+        # ウィンドウを閉じるイベントを設定
+        self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
 
     def _build_ui(self):
         # メインコンテナ
@@ -97,7 +121,10 @@ class DailyReportCheckerApp:
         self.folder_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
 
         browse_btn = ttk.Button(folder_frame, text="参照...", command=self._browse_folder)
-        browse_btn.pack(side=tk.RIGHT)
+        browse_btn.pack(side=tk.LEFT, padx=(0, 5))
+
+        save_folder_btn = ttk.Button(folder_frame, text="保存", command=self._save_config_with_message)
+        save_folder_btn.pack(side=tk.RIGHT)
 
         # 基準テンプレートファイル選択エリア
         template_frame = ttk.LabelFrame(main_frame, text=" 2. 基準テンプレートファイル選択 (入力以外の書き換えチェック用) ", padding=10)
@@ -107,7 +134,10 @@ class DailyReportCheckerApp:
         self.template_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
 
         browse_temp_btn = ttk.Button(template_frame, text="参照...", command=self._browse_template)
-        browse_temp_btn.pack(side=tk.RIGHT)
+        browse_temp_btn.pack(side=tk.LEFT, padx=(0, 5))
+
+        save_temp_btn = ttk.Button(template_frame, text="保存", command=self._save_config_with_message)
+        save_temp_btn.pack(side=tk.RIGHT)
 
         # 動作ボタンエリア
         btn_frame = ttk.Frame(main_frame)
@@ -208,6 +238,43 @@ class DailyReportCheckerApp:
         except:
             return -1
 
+    def _load_config(self):
+        """ 設定ファイル(config.json)から保存されたパス設定を読み込む """
+        try:
+            config_dir = get_app_data_dir()
+            config_path = os.path.join(config_dir, "config.json")
+            if os.path.exists(config_path):
+                with open(config_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    self.target_dir.set(data.get("target_dir", ""))
+                    self.template_file.set(data.get("template_file", ""))
+        except Exception as e:
+            print(f"Failed to load config: {e}")
+
+    def _save_config(self):
+        """ 設定ファイル(config.json)へ現在のパス設定を保存する """
+        try:
+            config_dir = get_app_data_dir()
+            config_path = os.path.join(config_dir, "config.json")
+            data = {
+                "target_dir": self.target_dir.get(),
+                "template_file": self.template_file.get()
+            }
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            print(f"Failed to save config: {e}")
+
+    def _save_config_with_message(self):
+        """ 設定ファイルへ現在のパス設定を保存し、確認メッセージを表示する """
+        self._save_config()
+        messagebox.showinfo("保存完了", "参照先の設定を「CheckDailyReportsSettings」フォルダ内に保存しました。")
+
+    def _on_closing(self):
+        """ アプリ終了時の処理 """
+        self._save_config()
+        self.root.destroy()
+
     def _browse_folder(self):
         selected = filedialog.askdirectory()
         if selected:
@@ -261,6 +328,9 @@ class DailyReportCheckerApp:
             'sag': self._col_to_index(self.sag_col_var.get()),
             'tot': self._col_to_index(self.tot_col_var.get())
         }
+
+        # 開始前に現在の設定パスを保存
+        self._save_config()
 
         # テンプレートファイルの確認と読み込み
         temp_file_path = self.template_file.get().strip()
