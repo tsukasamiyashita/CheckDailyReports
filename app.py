@@ -27,14 +27,6 @@ class DailyReportCheckerApp:
         self.root.geometry("900x700")
         self.root.minsize(800, 550)
         
-        # アイコンの設定
-        icon_path = resource_path("icon.ico")
-        if os.path.exists(icon_path):
-            try:
-                self.root.iconbitmap(icon_path)
-            except tk.TclError:
-                pass # Linux等、iconbitmapが非対応の環境ではスキップ
-
         # 起動時にウィンドウを最大化
         try:
             self.root.state('zoomed')
@@ -458,6 +450,7 @@ class DailyReportCheckerApp:
 
             self._scan_sheet_data_xls(sheet, sheet_name, errors)
             self._check_code_integrity_xls(sheet, sheet_name, errors, start_row_val, end_row_val, cols_info)
+            self._check_time_multiples_xls(sheet, sheet_name, errors)
         return errors
 
     def _parse_xlsx_xlsm(self, filepath, start_row_val, end_row_val, cols_info):
@@ -474,9 +467,106 @@ class DailyReportCheckerApp:
 
             self._scan_sheet_data_xlsx(sheet, sheet_name, errors)
             self._check_code_integrity_xlsx(sheet, sheet_name, errors, start_row_val, end_row_val, cols_info)
+            self._check_time_multiples_xlsx(sheet, sheet_name, errors)
             
         wb.close()
         return errors
+
+    # ------------------------------------------
+    # M6〜AR6, M7〜AR7 時間チェック用ロジック (.xls 用)
+    # ------------------------------------------
+    def _check_time_multiples_xls(self, sheet, sheet_name, errors):
+        nrows = sheet.nrows
+        ncols = sheet.ncols
+        
+        target_rows = [5, 6]  # 6行目(5), 7行目(6)
+        start_col = 12       # M列 (A=0始まりで12)
+        end_col = 43         # AR列 (A=0始まりで43)
+        
+        for r in target_rows:
+            if r >= nrows:
+                continue
+            for c in range(start_col, min(end_col + 1, ncols)):
+                val = sheet.cell_value(r, c)
+                cell_pos = f"{xlrd.formula.colname(c)}{r + 1}"
+                
+                val_str = self._get_clean_value(val)
+                if val_str == "" or val_str.lower() == "none":
+                    continue
+                
+                try:
+                    num_val = float(val_str)
+                    if not num_val.is_integer():
+                        errors.append({
+                            "sheet": sheet_name,
+                            "cell": cell_pos,
+                            "type": "時間単位エラー",
+                            "detail": f"{r + 1}行目のセル値（{val_str}）は整数（0または60の倍数）ではありません。"
+                        })
+                        continue
+                    
+                    num_int = int(num_val)
+                    if num_int != 0 and num_int % 60 != 0:
+                        errors.append({
+                            "sheet": sheet_name,
+                            "cell": cell_pos,
+                            "type": "時間単位エラー",
+                            "detail": f"{r + 1}行目のセル値（{num_int}）は0または60の倍数ではありません。"
+                        })
+                except ValueError:
+                    errors.append({
+                        "sheet": sheet_name,
+                        "cell": cell_pos,
+                        "type": "数値エラー",
+                        "detail": f"{r + 1}行目のセルに数値以外の値（'{val_str}'）が入力されています。"
+                    })
+
+    # ------------------------------------------
+    # M6〜AR6, M7〜AR7 時間チェック用ロジック (.xlsx 用)
+    # ------------------------------------------
+    def _check_time_multiples_xlsx(self, sheet, sheet_name, errors):
+        # 6行目と7行目をチェック
+        for r_idx in [6, 7]:
+            # M(13)からAR(44)のセル値を取得。openpyxlは1始まり。
+            row_cells = list(sheet.iter_rows(min_row=r_idx, max_row=r_idx, min_col=13, max_col=44, values_only=True))
+            if not row_cells or len(row_cells) == 0:
+                continue
+            
+            row_values = row_cells[0]
+            for idx, val in enumerate(row_values):
+                col_idx = 13 + idx
+                cell_pos = f"{openpyxl.utils.get_column_letter(col_idx)}{r_idx}"
+                
+                val_str = self._get_clean_value(val)
+                if val_str == "" or val_str.lower() == "none":
+                    continue
+                
+                try:
+                    num_val = float(val_str)
+                    if not num_val.is_integer():
+                        errors.append({
+                            "sheet": sheet_name,
+                            "cell": cell_pos,
+                            "type": "時間単位エラー",
+                            "detail": f"{r_idx}行目のセル値（{val_str}）は整数（0または60の倍数）ではありません。"
+                        })
+                        continue
+                    
+                    num_int = int(num_val)
+                    if num_int != 0 and num_int % 60 != 0:
+                        errors.append({
+                            "sheet": sheet_name,
+                            "cell": cell_pos,
+                            "type": "時間単位エラー",
+                            "detail": f"{r_idx}行目のセル値（{num_int}）は0または60の倍数ではありません。"
+                        })
+                except ValueError:
+                    errors.append({
+                        "sheet": sheet_name,
+                        "cell": cell_pos,
+                        "type": "数値エラー",
+                        "detail": f"{r_idx}行目のセルに数値以外の値（'{val_str}'）が入力されています。"
+                    })
 
     # ------------------------------------------
     # 管理Noと型枠/作業コードの未入力整合性検証 (.xls 用)
@@ -831,7 +921,7 @@ class DailyReportCheckerApp:
                             "sheet": sheet_name,
                             "cell": cell_pos_str,
                             "type": "工数負数エラー",
-                            "detail": f"作業時間に負の値が入力されています。入力値: {num_val}"
+                            "detail": f"作業時間に負の値が入力されています. 入力値: {num_val}"
                         })
                     elif num_val > 24:
                         errors.append({
