@@ -16,7 +16,8 @@ def resource_path(relative_path):
         # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
     except Exception:
-        base_path = os.path.abspath(".")
+        # スクリプトファイルが置かれているディレクトリを基準とする
+        base_path = os.path.dirname(os.path.abspath(__file__))
 
     return os.path.join(base_path, relative_path)
 
@@ -52,11 +53,11 @@ class DailyReportCheckerApp:
         except Exception:
             pass
             
-        # アイコンの設定
+        # アイコンの設定 (default引数を使用してすべてのToplevelウィンドウへ適用)
         icon_path = resource_path("icon.ico")
         if os.path.exists(icon_path):
             try:
-                self.root.iconbitmap(icon_path)
+                self.root.iconbitmap(default=icon_path)
             except Exception:
                 pass
         
