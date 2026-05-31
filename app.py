@@ -44,6 +44,21 @@ class DailyReportCheckerApp:
         self.root.geometry("900x750")
         self.root.minsize(800, 600)
         
+        # Windowsのタスクバーアイコン表示用のAppUserModelID設定
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("tsukasamiyashita.checkdailyreports.v1")
+        except Exception:
+            pass
+
+        # ウィンドウアイコンの設定
+        try:
+            icon_path = resource_path("icon.ico")
+            if os.path.exists(icon_path):
+                self.root.iconbitmap(icon_path)
+        except Exception as e:
+            print(f"Failed to set icon: {e}")
+        
         # 起動時にウィンドウを最大化
         try:
             self.root.state('zoomed')
@@ -63,6 +78,7 @@ class DailyReportCheckerApp:
         self.root.configure(bg=self.bg_color)
         
         # 状態保持変数
+        self.target_dir = tk.StringVar()
         self.template_file = tk.StringVar() # 基準テンプレートファイルのパス
         
         # 行・列の設定変数（UI非表示でもデフォルト値として機能）
@@ -77,11 +93,10 @@ class DailyReportCheckerApp:
         self.cancel_requested = False
         self.template_cache = {} # テンプレートセルのキャッシュ
 
-        # UIの構築
-        self._build_ui()
-
         # 保存されているデフォルト設定の読み込み
         self._load_config()
+
+        self._build_ui()
 
         # ウィンドウを閉じるイベントを設定
         self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
@@ -113,39 +128,18 @@ class DailyReportCheckerApp:
         )
         ver_label.pack(side=tk.LEFT, padx=10, pady=(5, 0))
 
-        # フォルダ選択エリア (複数フォルダ用リストボックスに変更)
-        folder_frame = ttk.LabelFrame(main_frame, text=" 1. 対象フォルダ選択 (複数登録可能) ", padding=10)
+        # フォルダ選択エリア
+        folder_frame = ttk.LabelFrame(main_frame, text=" 1. 対象フォルダ選択 ", padding=10)
         folder_frame.pack(fill=tk.X, pady=(0, 10))
 
-        # リストボックスとスクロールバーのコンテナ
-        list_container = ttk.Frame(folder_frame)
-        list_container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+        self.folder_entry = ttk.Entry(folder_frame, textvariable=self.target_dir, font=("Helvetica", 10))
+        self.folder_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
 
-        self.folder_scrollbar = ttk.Scrollbar(list_container, orient=tk.VERTICAL)
-        self.folder_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        browse_btn = ttk.Button(folder_frame, text="参照...", command=self._browse_folder)
+        browse_btn.pack(side=tk.LEFT, padx=(0, 5))
 
-        self.folder_listbox = tk.Listbox(
-            list_container, 
-            height=4, 
-            font=("Helvetica", 10), 
-            yscrollcommand=self.folder_scrollbar.set,
-            selectmode=tk.SINGLE
-        )
-        self.folder_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.folder_scrollbar.config(command=self.folder_listbox.yview)
-
-        # 操作ボタンのコンテナ (右側配置)
-        btn_container = ttk.Frame(folder_frame)
-        btn_container.pack(side=tk.RIGHT, fill=tk.Y)
-
-        add_btn = ttk.Button(btn_container, text="追加 (＋)", command=self._add_folder)
-        add_btn.pack(fill=tk.X, pady=2)
-
-        remove_btn = ttk.Button(btn_container, text="削除 (ー)", command=self._remove_folder)
-        remove_btn.pack(fill=tk.X, pady=2)
-
-        save_folder_btn = ttk.Button(btn_container, text="保存", command=self._save_config_with_message)
-        save_folder_btn.pack(fill=tk.X, pady=2)
+        save_folder_btn = ttk.Button(folder_frame, text="保存", command=self._save_config_with_message)
+        save_folder_btn.pack(side=tk.RIGHT)
 
         # 基準テンプレートファイル選択エリア
         template_frame = ttk.LabelFrame(main_frame, text=" 2. 基準テンプレートファイル選択 (入力以外の書き換えチェック用) ", padding=10)
@@ -267,22 +261,7 @@ class DailyReportCheckerApp:
             if os.path.exists(config_path):
                 with open(config_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    
-                    # 複数フォルダリストの復元
-                    target_dir_data = data.get("target_dir", "")
-                    self.folder_listbox.delete(0, tk.END)
-                    
-                    if isinstance(target_dir_data, list):
-                        target_dirs = target_dir_data
-                    elif isinstance(target_dir_data, str):
-                        target_dirs = [p.strip() for p in target_dir_data.split(";") if p.strip()]
-                    else:
-                        target_dirs = []
-                        
-                    for d in target_dirs:
-                        if d and os.path.exists(d):
-                            self.folder_listbox.insert(tk.END, d)
-                            
+                    self.target_dir.set(data.get("target_dir", ""))
                     self.template_file.set(data.get("template_file", ""))
         except Exception as e:
             print(f"Failed to load config: {e}")
@@ -292,12 +271,8 @@ class DailyReportCheckerApp:
         try:
             config_dir = get_app_data_dir()
             config_path = os.path.join(config_dir, "config.json")
-            
-            # リストボックス内の全てのフォルダパスを取得
-            target_dirs = list(self.folder_listbox.get(0, tk.END))
-            
             data = {
-                "target_dir": target_dirs,
+                "target_dir": self.target_dir.get(),
                 "template_file": self.template_file.get()
             }
             with open(config_path, "w", encoding="utf-8") as f:
@@ -315,23 +290,10 @@ class DailyReportCheckerApp:
         self._save_config()
         self.root.destroy()
 
-    def _add_folder(self):
-        """ 対象フォルダをリストボックスに追加する """
+    def _browse_folder(self):
         selected = filedialog.askdirectory()
         if selected:
-            path = os.path.abspath(selected)
-            existing = self.folder_listbox.get(0, tk.END)
-            if path not in existing:
-                self.folder_listbox.insert(tk.END, path)
-
-    def _remove_folder(self):
-        """ リストボックスで選択されているフォルダを削除する """
-        selected_indices = self.folder_listbox.curselection()
-        if not selected_indices:
-            messagebox.showwarning("警告", "削除するフォルダをリストから選択してください。")
-            return
-        for index in reversed(selected_indices):
-            self.folder_listbox.delete(index)
+            self.target_dir.set(os.path.abspath(selected))
 
     def _browse_template(self):
         selected = filedialog.askopenfilename(
@@ -347,15 +309,12 @@ class DailyReportCheckerApp:
             self.stop_btn.config(state=tk.DISABLED)
 
     def _start_check_thread(self):
-        targets = list(self.folder_listbox.get(0, tk.END))
-        if not targets:
-            messagebox.showwarning("警告", "対象フォルダが登録されていません。")
+        target = self.target_dir.get().strip()
+        if not target:
+            messagebox.showwarning("警告", "対象フォルダが選択されていません。")
             return
-            
-        # 複数フォルダそれぞれの存在チェック
-        invalid_targets = [t for t in targets if not os.path.exists(t)]
-        if invalid_targets:
-            messagebox.showerror("エラー", "以下のフォルダが存在しません:\n" + "\n".join(invalid_targets))
+        if not os.path.exists(target):
+            messagebox.showerror("エラー", "選択されたフォルダが存在しません。")
             return
             
         try:
@@ -410,8 +369,8 @@ class DailyReportCheckerApp:
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        # スレッド起動 (展開されたリストを渡す)
-        thread = threading.Thread(target=self._run_checker, args=(targets, start_row_val, end_row_val, cols_info), daemon=True)
+        # スレッド起動
+        thread = threading.Thread(target=self._run_checker, args=(target, start_row_val, end_row_val, cols_info), daemon=True)
         thread.start()
 
     def _load_template_data(self, temp_file_path):
@@ -438,20 +397,14 @@ class DailyReportCheckerApp:
             print(f"Template load error: {e}")
             return False
 
-    def _run_checker(self, targets, start_row_val, end_row_val, cols_info):
+    def _run_checker(self, target_dir, start_row_val, end_row_val, cols_info):
+        # 対象ファイル収集 (.xlsx, .xlsm のみ)
         valid_extensions = (".xlsx", ".xlsm")
         files_to_check = []
-        
-        # 登録されたすべてのフォルダを探索
-        for t in targets:
-            if os.path.exists(t):
-                for root_path, _, files in os.walk(t):
-                    for file in files:
-                        if file.lower().endswith(valid_extensions) and not file.startswith("~$"):
-                            files_to_check.append(os.path.join(root_path, file))
-
-        # ファイル重複を排除
-        files_to_check = list(dict.fromkeys(files_to_check))
+        for root_path, _, files in os.walk(target_dir):
+            for file in files:
+                if file.lower().endswith(valid_extensions) and not file.startswith("~$"):
+                    files_to_check.append(os.path.join(root_path, file))
 
         total_files = len(files_to_check)
         if total_files == 0:
@@ -463,14 +416,9 @@ class DailyReportCheckerApp:
             if self.cancel_requested:
                 break
 
-            # 進捗更新表示用の相対パス (一致する親フォルダの相対パスを取得)
-            relative_name = os.path.basename(filepath)
-            for t in targets:
-                if filepath.startswith(t):
-                    relative_name = os.path.relpath(filepath, t)
-                    break
-
+            # 進捗更新
             progress_percent = int(((i + 1) / total_files) * 100)
+            relative_name = os.path.relpath(filepath, target_dir)
             self.root.after(
                 0, 
                 self._update_progress, 
