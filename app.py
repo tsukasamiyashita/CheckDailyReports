@@ -48,7 +48,7 @@ class DailyReportCheckerApp:
         self.target_dir = tk.StringVar()
         self.template_file = tk.StringVar() # 基準テンプレートファイルのパス
         
-        # 行・列の設定変数
+        # 行・列の設定変数（UI非表示でもデフォルト値として機能）
         self.start_row_var = tk.StringVar(value="8")
         self.end_row_var = tk.StringVar(value="158")
         self.mng_col_var = tk.StringVar(value="B")
@@ -109,36 +109,6 @@ class DailyReportCheckerApp:
         browse_temp_btn = ttk.Button(template_frame, text="参照...", command=self._browse_template)
         browse_temp_btn.pack(side=tk.RIGHT)
 
-        # 設定エリア
-        settings_frame = ttk.LabelFrame(main_frame, text=" 3. チェック設定 (対象 of 行と列) ", padding=10)
-        settings_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        row1_frame = ttk.Frame(settings_frame)
-        row1_frame.pack(fill=tk.X, pady=(0, 8))
-        tk.Label(row1_frame, text="チェック開始行:", bg=self.bg_color).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Entry(row1_frame, textvariable=self.start_row_var, width=5, font=("Helvetica", 10)).pack(side=tk.LEFT)
-        tk.Label(row1_frame, text="行目から", bg=self.bg_color).pack(side=tk.LEFT, padx=(5, 15))
-
-        tk.Label(row1_frame, text="チェック最終行:", bg=self.bg_color).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Entry(row1_frame, textvariable=self.end_row_var, width=5, font=("Helvetica", 10)).pack(side=tk.LEFT)
-        tk.Label(row1_frame, text="行目まで (空欄で最後まで)", bg=self.bg_color).pack(side=tk.LEFT, padx=(5, 0))
-
-        row2_frame = ttk.Frame(settings_frame)
-        row2_frame.pack(fill=tk.X)
-        tk.Label(row2_frame, text="列の指定 (アルファベット) :", bg=self.bg_color).pack(side=tk.LEFT, padx=(0, 10))
-        
-        tk.Label(row2_frame, text="管理No:", bg=self.bg_color).pack(side=tk.LEFT)
-        ttk.Entry(row2_frame, textvariable=self.mng_col_var, width=4, font=("Helvetica", 10)).pack(side=tk.LEFT, padx=(2, 10))
-
-        tk.Label(row2_frame, text="型枠:", bg=self.bg_color).pack(side=tk.LEFT)
-        ttk.Entry(row2_frame, textvariable=self.kat_col_var, width=4, font=("Helvetica", 10)).pack(side=tk.LEFT, padx=(2, 10))
-
-        tk.Label(row2_frame, text="作業:", bg=self.bg_color).pack(side=tk.LEFT)
-        ttk.Entry(row2_frame, textvariable=self.sag_col_var, width=4, font=("Helvetica", 10)).pack(side=tk.LEFT, padx=(2, 10))
-
-        tk.Label(row2_frame, text="合計:", bg=self.bg_color).pack(side=tk.LEFT)
-        ttk.Entry(row2_frame, textvariable=self.tot_col_var, width=4, font=("Helvetica", 10)).pack(side=tk.LEFT, padx=(2, 0))
-
         # 動作ボタンエリア
         btn_frame = ttk.Frame(main_frame)
         btn_frame.pack(fill=tk.X, pady=(0, 10))
@@ -192,7 +162,7 @@ class DailyReportCheckerApp:
         self.status_label.pack(fill=tk.X, side=tk.BOTTOM)
 
         # 結果表示エリア（リスト）
-        list_frame = ttk.LabelFrame(main_frame, text=" 4. チェック結果一覧 (エラー検出箇所) ", padding=10)
+        list_frame = ttk.LabelFrame(main_frame, text=" 3. チェック結果一覧 (エラー検出箇所) ", padding=10)
         list_frame.pack(fill=tk.BOTH, expand=True)
 
         # スクロールバー
