@@ -44,6 +44,22 @@ class DailyReportCheckerApp:
         self.root.geometry("900x750")
         self.root.minsize(800, 600)
         
+        # Windowsのタスクバーにカスタムアイコンを正しく表示するための処理
+        try:
+            import ctypes
+            myappid = 'tsukasamiyashita.checkdailyreports.checker.v1.0.0'
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        except Exception:
+            pass
+            
+        # アイコンの設定
+        icon_path = resource_path("icon.ico")
+        if os.path.exists(icon_path):
+            try:
+                self.root.iconbitmap(icon_path)
+            except Exception:
+                pass
+        
         # 起動時にウィンドウを最大化
         try:
             self.root.state('zoomed')
