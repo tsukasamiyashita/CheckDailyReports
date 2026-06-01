@@ -685,7 +685,36 @@ class DailyReportCheckerApp:
         """セル位置 (r, c) [0-indexed] がユーザーの入力可能エリア（除外対象）か判定する"""
         start_row = start_row_val - 1
         end_row = end_row_val if end_row_val is not None else 100000
-        
+
+        # 指定されたテンプレート厳格チェック対象範囲は、入力セル（除外対象）から完全に除外する（必ず False を返す）
+        # 1. G2からAS6: 2 <= 行 <= 6, G(7列) <= 列 <= AS(45列) (0-indexed: 1 <= r <= 5, 6 <= c <= 44)
+        if (1 <= r <= 5) and (6 <= c <= 44):
+            return False
+            
+        # 2. B7からAS7: 行 == 7, B(2列) <= 列 <= AS(45列) (0-indexed: r == 6, 1 <= c <= 44)
+        if (r == 6) and (1 <= c <= 44):
+            return False
+            
+        # 3. B4からL6: 4 <= 行 <= 6, B(2列) <= 列 <= L(12列) (0-indexed: 3 <= r <= 5, 1 <= c <= 11)
+        if (3 <= r <= 5) and (1 <= c <= 11):
+            return False
+            
+        # 4. J8からJ158: 8 <= 行 <= 158, 列 == J(10列) (0-indexed: 7 <= r <= 157, c == 9)
+        if (7 <= r <= 157) and (c == 9):
+            return False
+            
+        # 5. L8からL158: 8 <= 行 <= 158, 列 == L(12列) (0-indexed: 7 <= r <= 157, c == 11)
+        if (7 <= r <= 157) and (c == 11):
+            return False
+            
+        # 6. AR8からAR158: 8 <= 行 <= 158, 列 == AR(44列) (0-indexed: 7 <= r <= 157, c == 43)
+        if (7 <= r <= 157) and (c == 43):
+            return False
+            
+        # 7. A8からA158: 8 <= 行 <= 158, 列 == A(1列) (0-indexed: 7 <= r <= 157, c == 0)
+        if (7 <= r <= 157) and (c == 0):
+            return False
+
         # M6〜AR7（行インデックス 5, 6 かつ 列インデックス 12〜43）
         if r in (5, 6) and (12 <= c <= 43):
             return True
