@@ -862,6 +862,46 @@ class DailyReportCheckerApp:
             is_kat_empty = (kat_val == "" or kat_val == "None" or kat_val == "0")
             is_sag_empty = (sag_val == "" or sag_val == "None" or sag_val == "0")
 
+            # I8からI158のセル（型枠コード）が、空白か、1から20の間ではない場合
+            is_kat_valid_range = False
+            if is_kat_empty:
+                is_kat_valid_range = True
+            else:
+                if kat_val.isdigit():
+                    val_num = int(kat_val)
+                    if 1 <= val_num <= 20:
+                        is_kat_valid_range = True
+
+            if not is_kat_valid_range:
+                col_letter = openpyxl.utils.get_column_letter(kat_idx + 1) if kat_idx >= 0 else "I"
+                cell_pos_str = f"{col_letter}{r_idx}"
+                errors.append({
+                    "sheet": sheet_name,
+                    "cell": cell_pos_str,
+                    "type": "型枠コード範囲外エラー",
+                    "detail": f"型枠コード（I列）は空白、または1〜20の範囲の数値で入力してください。入力値: '{kat_val}'"
+                })
+
+            # K8からK158のセル（作業コード）が、空白か、1から99の間ではない場合
+            is_sag_valid_range = False
+            if is_sag_empty:
+                is_sag_valid_range = True
+            else:
+                if sag_val.isdigit():
+                    val_num = int(sag_val)
+                    if 1 <= val_num <= 99:
+                        is_sag_valid_range = True
+
+            if not is_sag_valid_range:
+                col_letter = openpyxl.utils.get_column_letter(sag_idx + 1) if sag_idx >= 0 else "K"
+                cell_pos_str = f"{col_letter}{r_idx}"
+                errors.append({
+                    "sheet": sheet_name,
+                    "cell": cell_pos_str,
+                    "type": "作業コード範囲外エラー",
+                    "detail": f"作業コード（K列）は空白、または1〜99の範囲の数値で入力してください。入力値: '{sag_val}'"
+                })
+
             # C〜H列 (インデックス 2〜7) の空白以外チェック
             c_to_h_has_value = False
             for c_idx in range(2, 8):
