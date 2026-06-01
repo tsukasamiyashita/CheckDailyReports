@@ -100,6 +100,10 @@ class DailyReportCheckerApp:
         self.is_processing = False
         self.cancel_requested = False
         self.template_cache = {} # テンプレートセルのキャッシュ
+        
+        # フィルター用データ保持
+        self.all_error_data = [] # 検出された全エラーデータをメモリ保持
+        self.detected_error_types = set(["すべて"]) # 検出されたユニークなエラー区分の保持用
 
         # UIの構築
         self._build_ui()
@@ -239,6 +243,26 @@ class DailyReportCheckerApp:
         # 結果表示エリア（リスト）
         list_frame = ttk.LabelFrame(main_frame, text=" 3. チェック結果一覧 (エラー検出箇所) ", padding=10)
         list_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Excelライクなフィルターバーエリア
+        filter_bar = ttk.Frame(list_frame, padding=(0, 0, 0, 10))
+        filter_bar.pack(fill=tk.X, side=tk.TOP)
+
+        ttk.Label(filter_bar, text="エラー区分で抽出: ", font=("Helvetica", 10)).pack(side=tk.LEFT, padx=(0, 5))
+        self.filter_type_var = tk.StringVar(value="すべて")
+        self.filter_type_combobox = ttk.Combobox(filter_bar, textvariable=self.filter_type_var, state="readonly", width=22, font=("Helvetica", 10))
+        self.filter_type_combobox.pack(side=tk.LEFT, padx=(0, 20))
+        self.filter_type_combobox.bind("<<ComboboxSelected>>", self._on_filter_changed)
+        self.filter_type_combobox.config(values=["すべて"])
+
+        ttk.Label(filter_bar, text="キーワード検索: ", font=("Helvetica", 10)).pack(side=tk.LEFT, padx=(0, 5))
+        self.filter_keyword_var = tk.StringVar()
+        self.filter_keyword_entry = ttk.Entry(filter_bar, textvariable=self.filter_keyword_var, width=25, font=("Helvetica", 10))
+        self.filter_keyword_entry.pack(side=tk.LEFT, padx=(0, 8))
+        self.filter_keyword_entry.bind("<KeyRelease>", self._on_filter_changed)
+
+        clear_filter_btn = ttk.Button(filter_bar, text="フィルター解除", command=self._clear_filter)
+        clear_filter_btn.pack(side=tk.LEFT)
 
         # スクロールバー
         scroll_y = ttk.Scrollbar(list_frame, orient=tk.VERTICAL)
@@ -434,9 +458,14 @@ class DailyReportCheckerApp:
         self.start_btn.config(state=tk.DISABLED, bg="#9ca3af")
         self.stop_btn.config(state=tk.NORMAL, bg=self.accent_color)
         
-        # リストクリア
+        # リストとフィルターの初期化
         for item in self.tree.get_children():
             self.tree.delete(item)
+        self.all_error_data = []
+        self.detected_error_types = set(["すべて"])
+        self.filter_type_combobox.config(values=["すべて"])
+        self.filter_type_var.set("すべて")
+        self.filter_keyword_var.set("")
 
         # スレッド起動 (展開されたリストを渡す)
         thread = threading.Thread(target=self._run_checker, args=(targets, start_row_val, end_row_val, cols_info), daemon=True)
@@ -521,17 +550,82 @@ class DailyReportCheckerApp:
 
     def _add_errors_to_list(self, filepath, errors):
         for err in errors:
-            # 縞模様用の偶数・奇数タグの判定
-            current_count = len(self.tree.get_children())
-            tag_stripe = "even" if current_count % 2 == 0 else "odd"
-            
-            self.tree.insert("", tk.END, values=(
-                os.path.basename(filepath),
-                err.get("sheet", "不明"),
-                err.get("cell", "N/A"),
-                err.get("type", "警告"),
-                err.get("detail", "")
-            ), tags=(filepath, tag_stripe))
+            basename = os.path.basename(filepath)
+            sheet = err.get("sheet", "不明")
+            cell = err.get("cell", "N/A")
+            err_type = err.get("type", "警告")
+            detail = err.get("detail", "")
+
+            error_item = {
+                "filepath": filepath,
+                "basename": basename,
+                "sheet": sheet,
+                "cell": cell,
+                "type": err_type,
+                "detail": detail
+            }
+            # メモリ内に保存
+            self.all_error_data.append(error_item)
+
+            # エラー区分のコンボボックス選択肢を動的に追加
+            if err_type not in self.detected_error_types:
+                self.detected_error_types.add(err_type)
+                current_values = sorted(list(self.detected_error_types - {"すべて"}))
+                self.filter_type_combobox.config(values=["すべて"] + current_values)
+
+            # フィルター条件と一致する場合のみTreeviewへ挿入
+            if self._match_filter(error_item):
+                self._insert_to_tree(error_item)
+
+    def _match_filter(self, item):
+        """現在のフィルター条件（エラー区分および検索キーワード）と合致しているか判定"""
+        selected_type = self.filter_type_var.get()
+        keyword = self.filter_keyword_var.get().strip().lower()
+
+        # エラー区分による絞り込み
+        if selected_type != "すべて" and item["type"] != selected_type:
+            return False
+
+        # キーワード検索による絞り込み (全列部分一致)
+        if keyword:
+            match_found = (
+                keyword in item["basename"].lower() or
+                keyword in item["sheet"].lower() or
+                keyword in item["cell"].lower() or
+                keyword in item["type"].lower() or
+                keyword in item["detail"].lower()
+            )
+            if not match_found:
+                return False
+
+        return True
+
+    def _insert_to_tree(self, item):
+        """Treeviewへ行データを挿入し、偶数・奇数のストライプ模様を割り当てる"""
+        current_count = len(self.tree.get_children())
+        tag_stripe = "even" if current_count % 2 == 0 else "odd"
+        self.tree.insert("", tk.END, values=(
+            item["basename"],
+            item["sheet"],
+            item["cell"],
+            item["type"],
+            item["detail"]
+        ), tags=(item["filepath"], tag_stripe))
+
+    def _on_filter_changed(self, event=None):
+        """フィルターが変更された際にTreeviewをクリアして再描画する"""
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        for item in self.all_error_data:
+            if self._match_filter(item):
+                self._insert_to_tree(item)
+
+    def _clear_filter(self):
+        """すべてのフィルターをリセットして全件表示に戻す"""
+        self.filter_type_var.set("すべて")
+        self.filter_keyword_var.set("")
+        self._on_filter_changed()
 
     def _finish_checker(self, errors_found, message):
         self.is_processing = False
