@@ -816,14 +816,31 @@ class DailyReportCheckerApp:
             if 0 <= mng_idx < len(row):
                 mng_val = self._get_clean_value(row[mng_idx])
                 
-            is_valid_mng = False
-            if mng_val and mng_val != "None" and mng_val != "":
+            is_mng_empty = (mng_val == "" or mng_val == "None")
+            
+            # B8からB158セルの値が、空白か、10000000から29999999の間であるか検証
+            is_valid_range = False
+            if is_mng_empty:
+                is_valid_range = True
+            else:
                 if mng_val.isdigit():
                     val_num = int(mng_val)
-                    if not (40000 <= val_num <= 50000):
-                        is_valid_mng = True
-                elif len(mng_val) >= 4:
-                    is_valid_mng = True
+                    if 10000000 <= val_num <= 29999999:
+                        is_valid_range = True
+
+            # 範囲内ではない場合はエラーとする
+            if not is_valid_range:
+                col_letter = openpyxl.utils.get_column_letter(mng_idx + 1) if mng_idx >= 0 else "B"
+                cell_pos_str = f"{col_letter}{r_idx}"
+                errors.append({
+                    "sheet": sheet_name,
+                    "cell": cell_pos_str,
+                    "type": "管理No範囲外エラー",
+                    "detail": f"管理No（B列）は空白、または10000000〜29999999の範囲の数値で入力してください。入力値: '{mng_val}'"
+                })
+
+            # 他の整合性チェック用の有効フラグ (空白ではない、かつ、正しく有効範囲内)
+            is_valid_mng = (not is_mng_empty) and is_valid_range
                             
             # 合計値（実績）の算出（固定された指定列の値のみを見る）
             total_num = 0.0
@@ -862,12 +879,12 @@ class DailyReportCheckerApp:
                     "sheet": sheet_name,
                     "cell": cell_pos_str,
                     "type": "必須項目未入力エラー",
-                    "detail": f"{r_idx}行目のC〜H列に記述がありますが、管理No(B)、型枠コード(I)、作業コード(K)がすべて未入力です。"
+                    "detail": f"{r_idx}行目のC〜H列に記述がありますが、管理No(B)、型枠コード(I)、作業コード(K)がすべて未入力、または正しく入力されていません。"
                 })
                 continue # 既存のエラーと重複しないようスキップ
 
             # 要件1: 管理Noが未入力で、合計（実績）が0ではない場合にエラー
-            if not is_valid_mng and total_num > 0:
+            if is_mng_empty and total_num > 0:
                 col_letter = openpyxl.utils.get_column_letter(mng_idx + 1) if mng_idx >= 0 else "?"
                 cell_pos_str = f"{col_letter}{r_idx}"
                 errors.append({
@@ -878,7 +895,7 @@ class DailyReportCheckerApp:
                 })
 
             # 要件2: 管理Noが入力されている場合、コードの未入力チェック
-            elif is_valid_mng:
+            elif not is_mng_empty:
                 # 型枠コード、あるいは作業コードの「両方とも」が未入力の場合にエラーとする
                 if is_kat_empty and is_sag_empty:
                     col_letter = openpyxl.utils.get_column_letter(mng_idx + 1) if mng_idx >= 0 else "?"
