@@ -79,6 +79,13 @@ class DailyReportCheckerApp:
         
         self.root.configure(bg=self.bg_color)
         
+        # Treeviewの表示スタイルカスタム（行の高さを26pxにし、文字フォントを調整）
+        self.style.configure("Treeview", 
+                             rowheight=26, 
+                             font=("Helvetica", 10))
+        self.style.configure("Treeview.Heading", 
+                             font=("Helvetica", 10, "bold"))
+        
         # 状態保持変数
         self.template_file = tk.StringVar() # 基準テンプレートファイルのパス
         
@@ -246,6 +253,10 @@ class DailyReportCheckerApp:
             yscrollcommand=scroll_y.set, 
             xscrollcommand=scroll_x.set
         )
+        
+        # 縞模様用のタグ設定 (even: 白, odd: 少し濃く調整したソフトなグレー #e5e7eb)
+        self.tree.tag_configure("even", background="#ffffff")
+        self.tree.tag_configure("odd", background="#e5e7eb")
         
         scroll_y.config(command=self.tree.yview)
         scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
@@ -510,13 +521,17 @@ class DailyReportCheckerApp:
 
     def _add_errors_to_list(self, filepath, errors):
         for err in errors:
+            # 縞模様用の偶数・奇数タグの判定
+            current_count = len(self.tree.get_children())
+            tag_stripe = "even" if current_count % 2 == 0 else "odd"
+            
             self.tree.insert("", tk.END, values=(
                 os.path.basename(filepath),
                 err.get("sheet", "不明"),
                 err.get("cell", "N/A"),
                 err.get("type", "警告"),
                 err.get("detail", "")
-            ), tags=(filepath,))
+            ), tags=(filepath, tag_stripe))
 
     def _finish_checker(self, errors_found, message):
         self.is_processing = False
