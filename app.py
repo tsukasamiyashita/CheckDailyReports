@@ -41,14 +41,14 @@ def get_app_data_dir():
 class DailyReportCheckerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("CheckDailyReports-v1.0.0")
+        self.root.title("CheckDailyReports-v1.1.0")
         self.root.geometry("900x750")
         self.root.minsize(800, 600)
         
         # Windowsのタスクバーにカスタムアイコンを正しく表示するための処理
         try:
             import ctypes
-            myappid = 'tsukasamiyashita.checkdailyreports.checker.v1.0.0'
+            myappid = 'tsukasamiyashita.checkdailyreports.checker.v1.1.0'
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
         except Exception:
             pass
@@ -148,7 +148,7 @@ class DailyReportCheckerApp:
         
         ver_label = tk.Label(
             header_frame,
-            text="v1.0.0",
+            text="v1.1.0",
             font=("Yu Gothic UI", 10, "italic"),
             bg=self.bg_color,
             fg="#6b7280"
