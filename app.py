@@ -82,9 +82,9 @@ class DailyReportCheckerApp:
         # Treeviewの表示スタイルカスタム（行の高さを26pxにし、文字フォントを調整）
         self.style.configure("Treeview", 
                              rowheight=26, 
-                             font=("Helvetica", 10))
+                             font=("Yu Gothic UI", 10))
         self.style.configure("Treeview.Heading", 
-                             font=("Helvetica", 10, "bold"))
+                             font=("Yu Gothic UI", 10, "bold"))
         
         # 状態保持変数
         self.template_file = tk.StringVar() # 基準テンプレートファイルのパス
@@ -108,6 +108,9 @@ class DailyReportCheckerApp:
         # UIの構築
         self._build_ui()
 
+        # メニューバーの構築
+        self._build_menu()
+
         # 保存されているデフォルト設定の読み込み
         self._load_config()
 
@@ -126,7 +129,7 @@ class DailyReportCheckerApp:
         title_label = tk.Label(
             header_frame, 
             text="日報入力ミス自動チェックツール", 
-            font=("Helvetica", 16, "bold"),
+            font=("Yu Gothic UI", 16, "bold"),
             bg=self.bg_color,
             fg="#1f2937"
         )
@@ -135,7 +138,7 @@ class DailyReportCheckerApp:
         ver_label = tk.Label(
             header_frame,
             text="v1.0.0",
-            font=("Helvetica", 10, "italic"),
+            font=("Yu Gothic UI", 10, "italic"),
             bg=self.bg_color,
             fg="#6b7280"
         )
@@ -155,7 +158,7 @@ class DailyReportCheckerApp:
         self.folder_listbox = tk.Listbox(
             list_container, 
             height=4, 
-            font=("Helvetica", 10), 
+            font=("Yu Gothic UI", 10), 
             yscrollcommand=self.folder_scrollbar.set,
             selectmode=tk.SINGLE
         )
@@ -179,7 +182,7 @@ class DailyReportCheckerApp:
         template_frame = ttk.LabelFrame(main_frame, text=" 2. 基準テンプレートファイル選択 (入力以外の書き換えチェック用) ", padding=10)
         template_frame.pack(fill=tk.X, pady=(0, 10))
 
-        self.template_entry = ttk.Entry(template_frame, textvariable=self.template_file, font=("Helvetica", 10))
+        self.template_entry = ttk.Entry(template_frame, textvariable=self.template_file, font=("Yu Gothic UI", 10))
         self.template_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
 
         browse_temp_btn = ttk.Button(template_frame, text="参照...", command=self._browse_template)
@@ -197,7 +200,7 @@ class DailyReportCheckerApp:
             text="チェック開始", 
             bg=self.primary_color, 
             fg="white", 
-            font=("Helvetica", 11, "bold"),
+            font=("Yu Gothic UI", 11, "bold"),
             activebackground="#1d4ed8",
             activeforeground="white",
             relief=tk.FLAT,
@@ -212,7 +215,7 @@ class DailyReportCheckerApp:
             text="中止", 
             bg="#9ca3af", 
             fg="white", 
-            font=("Helvetica", 11, "bold"),
+            font=("Yu Gothic UI", 11, "bold"),
             activebackground="#78716c",
             activeforeground="white",
             relief=tk.FLAT,
@@ -233,7 +236,7 @@ class DailyReportCheckerApp:
         self.status_label = tk.Label(
             self.progress_frame, 
             text="フォルダを選択して「チェック開始」をクリックしてください。", 
-            font=("Helvetica", 9),
+            font=("Yu Gothic UI", 9),
             bg=self.bg_color,
             fg="#4b5563",
             anchor="w"
@@ -248,16 +251,16 @@ class DailyReportCheckerApp:
         filter_bar = ttk.Frame(list_frame, padding=(0, 0, 0, 10))
         filter_bar.pack(fill=tk.X, side=tk.TOP)
 
-        ttk.Label(filter_bar, text="エラー区分で抽出: ", font=("Helvetica", 10)).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(filter_bar, text="エラー区分で抽出: ", font=("Yu Gothic UI", 10)).pack(side=tk.LEFT, padx=(0, 5))
         self.filter_type_var = tk.StringVar(value="すべて")
-        self.filter_type_combobox = ttk.Combobox(filter_bar, textvariable=self.filter_type_var, state="readonly", width=22, font=("Helvetica", 10))
+        self.filter_type_combobox = ttk.Combobox(filter_bar, textvariable=self.filter_type_var, state="readonly", width=22, font=("Yu Gothic UI", 10))
         self.filter_type_combobox.pack(side=tk.LEFT, padx=(0, 20))
         self.filter_type_combobox.bind("<<ComboboxSelected>>", self._on_filter_changed)
         self.filter_type_combobox.config(values=["すべて"])
 
-        ttk.Label(filter_bar, text="キーワード検索: ", font=("Helvetica", 10)).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(filter_bar, text="キーワード検索: ", font=("Yu Gothic UI", 10)).pack(side=tk.LEFT, padx=(0, 5))
         self.filter_keyword_var = tk.StringVar()
-        self.filter_keyword_entry = ttk.Entry(filter_bar, textvariable=self.filter_keyword_var, width=25, font=("Helvetica", 10))
+        self.filter_keyword_entry = ttk.Entry(filter_bar, textvariable=self.filter_keyword_var, width=25, font=("Yu Gothic UI", 10))
         self.filter_keyword_entry.pack(side=tk.LEFT, padx=(0, 8))
         self.filter_keyword_entry.bind("<KeyRelease>", self._on_filter_changed)
 
@@ -304,6 +307,168 @@ class DailyReportCheckerApp:
 
         # ダブルクリックイベント（詳細表示）
         self.tree.bind("<Double-1>", self._show_detail_popup)
+
+    def _build_menu(self):
+        """ メニューバーを構成する """
+        self.menu_bar = tk.Menu(self.root)
+        self.root.config(menu=self.menu_bar)
+
+        # ヘルプメニューの追加
+        self.help_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.menu_bar.add_cascade(label="ヘルプ", menu=self.help_menu)
+        self.help_menu.add_command(label="ヘルプを表示 (README)", command=self._show_readme_help)
+
+    def _show_readme_help(self):
+        """ README.md の内容を美しく整形して表示するサブウィンドウを起動する """
+        popup = tk.Toplevel(self.root)
+        popup.title("ヘルプ (README)")
+        popup.geometry("800x650")
+        popup.minsize(600, 450)
+        popup.transient(self.root)
+        popup.grab_set()
+        popup.configure(bg="#f3f4f6") # メイン背景色に合わせる
+
+        # 上部タイトルヘッダー
+        header_lbl = tk.Label(
+            popup, 
+            text="📖 ご利用ガイド・ヘルプ", 
+            font=("Yu Gothic UI", 14, "bold"),
+            bg="#f3f4f6",
+            fg="#1f2937",
+            anchor="w"
+        )
+        header_lbl.pack(fill=tk.X, padx=20, pady=(15, 5))
+
+        frm = ttk.Frame(popup, padding=(20, 5, 20, 10))
+        frm.pack(fill=tk.BOTH, expand=True)
+
+        # テキストボックスとスクロールバー
+        scroll_y = ttk.Scrollbar(frm, orient=tk.VERTICAL)
+        text_area = tk.Text(
+            frm, 
+            wrap=tk.WORD, 
+            yscrollcommand=scroll_y.set,
+            bg="#ffffff",
+            bd=0,
+            highlightthickness=1,
+            highlightbackground="#e5e7eb",
+            highlightcolor="#e5e7eb",
+            padx=25,
+            pady=25
+        )
+        scroll_y.config(command=text_area.yview)
+
+        scroll_y.pack(side=tk.RIGHT, fill=tk.Y)
+        text_area.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Windows環境で綺麗に表示されるフォントを指定
+        font_family = "Yu Gothic UI"
+
+        # スタイルの詳細設定
+        text_area.tag_configure("title", font=(font_family, 16, "bold"), foreground="#1e3a8a", spacing1=10, spacing3=15)
+        text_area.tag_configure("h1", font=(font_family, 13, "bold"), foreground="#2563eb", spacing1=20, spacing3=10)
+        text_area.tag_configure("h2", font=(font_family, 11, "bold"), foreground="#1f2937", spacing1=15, spacing3=8)
+        text_area.tag_configure("body", font=(font_family, 10), foreground="#374151", spacing3=6, spacing1=2)
+        text_area.tag_configure("bold", font=(font_family, 10, "bold"), foreground="#111827")
+        text_area.tag_configure("inline_code", font=("Consolas", 10), background="#f3f4f6", foreground="#dc2626")
+        text_area.tag_configure("bullet", font=(font_family, 10), foreground="#374151", lmargin1=24, lmargin2=38, spacing3=6, spacing1=2)
+        text_area.tag_configure("code", font=("Consolas", 10), background="#f3f4f6", foreground="#1f2937", lmargin1=20, lmargin2=20, spacing1=6, spacing3=6)
+        text_area.tag_configure("quote", font=(font_family, 10, "italic"), foreground="#4b5563", background="#f9fafb", lmargin1=24, lmargin2=24, spacing3=6)
+        text_area.tag_configure("hr", font=(font_family, 10), foreground="#d1d5db", spacing1=15, spacing3=15)
+
+        # インライン装飾の優先度を上げる（ベースのbody等に打ち勝つため）
+        text_area.tag_raise("bold")
+        text_area.tag_raise("inline_code")
+
+        # README.mdの検索と読み込み
+        readme_path = resource_path("README.md")
+        content = ""
+        if os.path.exists(readme_path):
+            try:
+                with open(readme_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+            except Exception as e:
+                content = f"README.md の読み込みに失敗しました。\n\nエラー詳細:\n{str(e)}"
+        else:
+            fallback_dirs = [
+                os.path.dirname(os.path.abspath(__file__)),
+                os.getcwd()
+            ]
+            found = False
+            for d in fallback_dirs:
+                p = os.path.join(d, "README.md")
+                if os.path.exists(p):
+                    try:
+                        with open(p, "r", encoding="utf-8") as f:
+                            content = f.read()
+                        found = True
+                        break
+                    except:
+                        pass
+            if not found:
+                content = "# エラー\n\nREADME.md ファイルが見つかりませんでした。\nアプリケーションパッケージに README.md が正しく同封されているか確認してください。"
+
+        # インラインマークダウンパーサー関数
+        def _insert_formatted_inline(text_widget, raw_text, base_tag):
+            parts = re.split(r'(\*\*.*?\*\*|`.*?`)', raw_text)
+            for part in parts:
+                if part.startswith('**') and part.endswith('**'):
+                    text_widget.insert(tk.END, part[2:-2], ("bold", base_tag))
+                elif part.startswith('`') and part.endswith('`'):
+                    text_widget.insert(tk.END, f" {part[1:-1]} ", ("inline_code", base_tag))
+                else:
+                    text_widget.insert(tk.END, part, base_tag)
+
+        # 行単位での簡易Markdownパーサー
+        lines = content.split('\n')
+        in_code_block = False
+        
+        for line in lines:
+            stripped = line.strip()
+            
+            # コードブロック処理
+            if stripped.startswith('```'):
+                in_code_block = not in_code_block
+                continue
+                
+            if in_code_block:
+                text_area.insert(tk.END, line + '\n', "code")
+                continue
+                
+            # 各要素のパース
+            if stripped.startswith('# '):
+                text_area.insert(tk.END, stripped[2:] + '\n', "title")
+            elif stripped.startswith('## '):
+                text_area.insert(tk.END, stripped[3:] + '\n', "h1")
+            elif stripped.startswith('### '):
+                text_area.insert(tk.END, stripped[4:] + '\n', "h2")
+            elif stripped == '---':
+                text_area.insert(tk.END, "―" * 55 + "\n", "hr")
+            elif stripped.startswith('- ') or stripped.startswith('* '):
+                bullet_text = line.split('-', 1)[1].strip() if stripped.startswith('- ') else line.split('*', 1)[1].strip()
+                text_area.insert(tk.END, "•  ", "bullet")
+                _insert_formatted_inline(text_area, bullet_text, "bullet")
+                text_area.insert(tk.END, "\n")
+            elif stripped.startswith('> '):
+                quote_text = stripped[2:]
+                text_area.insert(tk.END, "▎ ", "bold")
+                _insert_formatted_inline(text_area, quote_text, "quote")
+                text_area.insert(tk.END, "\n")
+            else:
+                if stripped == "":
+                    text_area.insert(tk.END, "\n", "body")
+                else:
+                    _insert_formatted_inline(text_area, line, "body")
+                    text_area.insert(tk.END, "\n")
+
+        text_area.config(state=tk.DISABLED) # 読込専用に設定
+
+        # ボタンコンテナ (余白をしっかりと確保したモダンな配置)
+        btn_frame = ttk.Frame(popup, padding=(0, 0, 0, 15))
+        btn_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        close_btn = ttk.Button(btn_frame, text="閉じる", width=15, command=popup.destroy)
+        close_btn.pack()
 
     def _col_to_index(self, col_str):
         try:
@@ -667,12 +832,12 @@ class DailyReportCheckerApp:
         ]
 
         for i, (lbl, val) in enumerate(labels):
-            tk.Label(frm, text=lbl, font=("Helvetica", 10, "bold"), anchor="w").grid(row=i, column=0, sticky="nw", pady=5)
-            tk.Label(frm, text=val, font=("Helvetica", 10), justify="left", anchor="w", wraplength=400).grid(row=i, column=1, sticky="nw", pady=5, padx=10)
+            tk.Label(frm, text=lbl, font=("Yu Gothic UI", 10, "bold"), anchor="w").grid(row=i, column=0, sticky="nw", pady=5)
+            tk.Label(frm, text=val, font=("Yu Gothic UI", 10), justify="left", anchor="w", wraplength=400).grid(row=i, column=1, sticky="nw", pady=5, padx=10)
 
-        tk.Label(frm, text="詳細説明:", font=("Helvetica", 10, "bold"), anchor="w").grid(row=4, column=0, sticky="nw", pady=5)
+        tk.Label(frm, text="詳細説明:", font=("Yu Gothic UI", 10, "bold"), anchor="w").grid(row=4, column=0, sticky="nw", pady=5)
         
-        detail_txt = tk.Text(frm, font=("Helvetica", 10), height=6, wrap=tk.WORD, bg="#f9fafb", relief=tk.SOLID, bd=1)
+        detail_txt = tk.Text(frm, font=("Yu Gothic UI", 10), height=6, wrap=tk.WORD, bg="#f9fafb", relief=tk.SOLID, bd=1)
         detail_txt.insert(tk.END, values[4])
         detail_txt.config(state=tk.DISABLED)
         detail_txt.grid(row=4, column=1, sticky="nsew", pady=5, padx=10)
@@ -954,31 +1119,14 @@ class DailyReportCheckerApp:
             if 0 <= mng_idx < len(row):
                 mng_val = self._get_clean_value(row[mng_idx])
                 
-            is_mng_empty = (mng_val == "" or mng_val == "None")
-            
-            # B8からB158セルの値が、空白か、10000000から29999999の間であるか検証
-            is_valid_range = False
-            if is_mng_empty:
-                is_valid_range = True
-            else:
+            is_valid_mng = False
+            if mng_val and mng_val != "None" and mng_val != "":
                 if mng_val.isdigit():
                     val_num = int(mng_val)
-                    if 10000000 <= val_num <= 29999999:
-                        is_valid_range = True
-
-            # 範囲内ではない場合はエラーとする
-            if not is_valid_range:
-                col_letter = openpyxl.utils.get_column_letter(mng_idx + 1) if mng_idx >= 0 else "B"
-                cell_pos_str = f"{col_letter}{r_idx}"
-                errors.append({
-                    "sheet": sheet_name,
-                    "cell": cell_pos_str,
-                    "type": "管理No範囲外エラー",
-                    "detail": f"管理No（B列）は空白、または10000000〜29999999の範囲の数値で入力してください。入力値: '{mng_val}'"
-                })
-
-            # 他の整合性チェック用の有効フラグ (空白ではない、かつ、正しく有効範囲内)
-            is_valid_mng = (not is_mng_empty) and is_valid_range
+                    if not (40000 <= val_num <= 50000):
+                        is_valid_mng = True
+                elif len(mng_val) >= 4:
+                    is_valid_mng = True
                             
             # 合計値（実績）の算出（固定された指定列の値のみを見る）
             total_num = 0.0
@@ -1000,46 +1148,6 @@ class DailyReportCheckerApp:
             is_kat_empty = (kat_val == "" or kat_val == "None" or kat_val == "0")
             is_sag_empty = (sag_val == "" or sag_val == "None" or sag_val == "0")
 
-            # I8からI158のセル（型枠コード）が、空白か、1から20の間ではない場合
-            is_kat_valid_range = False
-            if is_kat_empty:
-                is_kat_valid_range = True
-            else:
-                if kat_val.isdigit():
-                    val_num = int(kat_val)
-                    if 1 <= val_num <= 20:
-                        is_kat_valid_range = True
-
-            if not is_kat_valid_range:
-                col_letter = openpyxl.utils.get_column_letter(kat_idx + 1) if kat_idx >= 0 else "I"
-                cell_pos_str = f"{col_letter}{r_idx}"
-                errors.append({
-                    "sheet": sheet_name,
-                    "cell": cell_pos_str,
-                    "type": "型枠コード範囲外エラー",
-                    "detail": f"型枠コード（I列）は空白、または1〜20の範囲の数値で入力してください。入力値: '{kat_val}'"
-                })
-
-            # K8からK158のセル（作業コード）が、空白か、1から99の間ではない場合
-            is_sag_valid_range = False
-            if is_sag_empty:
-                is_sag_valid_range = True
-            else:
-                if sag_val.isdigit():
-                    val_num = int(sag_val)
-                    if 1 <= val_num <= 99:
-                        is_sag_valid_range = True
-
-            if not is_sag_valid_range:
-                col_letter = openpyxl.utils.get_column_letter(sag_idx + 1) if sag_idx >= 0 else "K"
-                cell_pos_str = f"{col_letter}{r_idx}"
-                errors.append({
-                    "sheet": sheet_name,
-                    "cell": cell_pos_str,
-                    "type": "作業コード範囲外エラー",
-                    "detail": f"作業コード（K列）は空白、または1〜99の範囲の数値で入力してください。入力値: '{sag_val}'"
-                })
-
             # C〜H列 (インデックス 2〜7) の空白以外チェック
             c_to_h_has_value = False
             for c_idx in range(2, 8):
@@ -1057,12 +1165,12 @@ class DailyReportCheckerApp:
                     "sheet": sheet_name,
                     "cell": cell_pos_str,
                     "type": "必須項目未入力エラー",
-                    "detail": f"{r_idx}行目のC〜H列に記述がありますが、管理No(B)、型枠コード(I)、作業コード(K)がすべて未入力、または正しく入力されていません。"
+                    "detail": f"{r_idx}行目のC〜H列に記述がありますが、管理No(B)、型枠コード(I)、作業コード(K)がすべて未入力です。"
                 })
                 continue # 既存のエラーと重複しないようスキップ
 
             # 要件1: 管理Noが未入力で、合計（実績）が0ではない場合にエラー
-            if is_mng_empty and total_num > 0:
+            if not is_valid_mng and total_num > 0:
                 col_letter = openpyxl.utils.get_column_letter(mng_idx + 1) if mng_idx >= 0 else "?"
                 cell_pos_str = f"{col_letter}{r_idx}"
                 errors.append({
@@ -1073,7 +1181,7 @@ class DailyReportCheckerApp:
                 })
 
             # 要件2: 管理Noが入力されている場合、コードの未入力チェック
-            elif not is_mng_empty:
+            elif is_valid_mng:
                 # 型枠コード、あるいは作業コードの「両方とも」が未入力の場合にエラーとする
                 if is_kat_empty and is_sag_empty:
                     col_letter = openpyxl.utils.get_column_letter(mng_idx + 1) if mng_idx >= 0 else "?"
