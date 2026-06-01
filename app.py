@@ -96,6 +96,17 @@ class DailyReportCheckerApp:
         self.kat_col_var = tk.StringVar(value="I")
         self.sag_col_var = tk.StringVar(value="K")
         self.tot_col_var = tk.StringVar(value="AR")
+
+        # チェック項目別有効/無効設定変数
+        self.cfg_check_smart_scan = tk.BooleanVar(value=True)       # 氏名・日付等スマートスキャン
+        self.cfg_check_mng_no = tk.BooleanVar(value=True)          # 管理No未入力チェック
+        self.cfg_check_code_integrity = tk.BooleanVar(value=True)  # コード未入力チェック（型枠・作業コード）
+        self.cfg_check_numeric_format = tk.BooleanVar(value=True)  # 数値フォーマットチェック
+        self.cfg_check_time_multiples = tk.BooleanVar(value=True)  # 時間単位（設定された倍数）チェック
+        self.cfg_check_template_compare = tk.BooleanVar(value=True)# 基準テンプレート不整合チェック
+        
+        # 勤務時間単位チェックの倍数(分)設定
+        self.cfg_time_multiple_val = tk.StringVar(value="60")
         
         self.is_processing = False
         self.cancel_requested = False
@@ -224,7 +235,23 @@ class DailyReportCheckerApp:
             pady=6,
             command=self._stop_check
         )
-        self.stop_btn.pack(side=tk.LEFT)
+        self.stop_btn.pack(side=tk.LEFT, padx=(0, 10))
+
+        # 設定画面を呼び出すボタンを追加
+        self.settings_btn = tk.Button(
+            btn_frame, 
+            text="チェック項目設定...", 
+            bg="#10b981", 
+            fg="white", 
+            font=("Yu Gothic UI", 10, "bold"),
+            activebackground="#059669",
+            activeforeground="white",
+            relief=tk.FLAT,
+            padx=15,
+            pady=6,
+            command=self._show_settings_popup
+        )
+        self.settings_btn.pack(side=tk.LEFT)
 
         # 進捗バーと進捗テキスト
         self.progress_frame = ttk.Frame(main_frame)
@@ -313,10 +340,103 @@ class DailyReportCheckerApp:
         self.menu_bar = tk.Menu(self.root)
         self.root.config(menu=self.menu_bar)
 
+        # 設定メニューの追加
+        self.settings_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.menu_bar.add_cascade(label="設定", menu=self.settings_menu)
+        self.settings_menu.add_command(label="チェック項目の設定", command=self._show_settings_popup)
+
         # ヘルプメニューの追加
         self.help_menu = tk.Menu(self.menu_bar, tearoff=0)
         self.menu_bar.add_cascade(label="ヘルプ", menu=self.help_menu)
         self.help_menu.add_command(label="ヘルプを表示 (README)", command=self._show_readme_help)
+
+    def _show_settings_popup(self):
+        """ チェック項目の有効化・無効化を設定するサブウィンドウを起動する """
+        popup = tk.Toplevel(self.root)
+        popup.title("チェック項目設定")
+        popup.geometry("500x440")
+        popup.resizable(False, False)
+        popup.transient(self.root)
+        popup.grab_set()
+        popup.configure(bg="#f3f4f6")
+
+        # タイトルラベル
+        title_lbl = tk.Label(
+            popup,
+            text="🛠️ チェック項目の選択",
+            font=("Yu Gothic UI", 12, "bold"),
+            bg="#f3f4f6",
+            fg="#1f2937",
+            anchor="w"
+        )
+        title_lbl.pack(fill=tk.X, padx=20, pady=(15, 5))
+
+        desc_lbl = tk.Label(
+            popup,
+            text="自動チェックを行う検証項目を選択してください。不要なチェックをオフにすることで、処理の高速化や特定のエラー検出を省略できます。",
+            font=("Yu Gothic UI", 9),
+            bg="#f3f4f6",
+            fg="#4b5563",
+            justify=tk.LEFT,
+            wraplength=460,
+            anchor="w"
+        )
+        desc_lbl.pack(fill=tk.X, padx=20, pady=(0, 15))
+
+        # 設定オプション配置用のフレーム
+        opts_frame = ttk.LabelFrame(popup, text=" 検証項目リスト ", padding=15)
+        opts_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=5)
+
+        # 各種チェックボックス (エラー区分名に整合させている)
+        chk1 = ttk.Checkbutton(opts_frame, text="氏名・日付等スマートスキャンチェック (氏名/日付の記入漏れ、日付形式など)", variable=self.cfg_check_smart_scan)
+        chk1.pack(anchor="w", pady=4)
+
+        chk2 = ttk.Checkbutton(opts_frame, text="管理No未入力チェック (作業実績があるが管理Noが無い場合)", variable=self.cfg_check_mng_no)
+        chk2.pack(anchor="w", pady=4)
+
+        chk3 = ttk.Checkbutton(opts_frame, text="コード未入力チェック (管理No設定時、型枠・作業コードが未入力の場合)", variable=self.cfg_check_code_integrity)
+        chk3.pack(anchor="w", pady=4)
+
+        chk4 = ttk.Checkbutton(opts_frame, text="数値フォーマットチェック (必須入力エリア内の空白、数値以外を検出)", variable=self.cfg_check_numeric_format)
+        chk4.pack(anchor="w", pady=4)
+
+        # 時間単位（倍数指定対応）用のフレーム
+        time_frame = ttk.Frame(opts_frame)
+        time_frame.pack(anchor="w", pady=4, fill=tk.X)
+        
+        chk5 = ttk.Checkbutton(time_frame, text="勤務時間単位チェック (端数時間の入力エラーを検出)  倍数(分):", variable=self.cfg_check_time_multiples)
+        chk5.pack(side=tk.LEFT)
+        
+        time_entry = ttk.Entry(time_frame, textvariable=self.cfg_time_multiple_val, width=5, font=("Yu Gothic UI", 10))
+        time_entry.pack(side=tk.LEFT, padx=5)
+
+        chk6 = ttk.Checkbutton(opts_frame, text="基準テンプレート不整合チェック (固定文字列や数式セルの書き換えを検出)", variable=self.cfg_check_template_compare)
+        chk6.pack(anchor="w", pady=4)
+
+        # フッターボタン
+        btn_frame = ttk.Frame(popup, padding=(0, 15, 0, 15))
+        btn_frame.pack(side=tk.BOTTOM, fill=tk.X)
+
+        def save_and_close():
+            # 倍数設定値のバリデーション
+            val = self.cfg_time_multiple_val.get().strip()
+            try:
+                val_int = int(val)
+                if val_int <= 0:
+                    raise ValueError
+            except ValueError:
+                messagebox.showerror("エラー", "勤務時間単位チェックの倍数は、1以上の整数で入力してください。")
+                return
+
+            self._save_config()
+            messagebox.showinfo("保存完了", "チェック項目の設定を「CheckDailyReportsSettings」フォルダ内に保存しました。")
+            popup.destroy()
+
+        save_btn = ttk.Button(btn_frame, text="設定を保存して閉じる", width=22, command=save_and_close)
+        save_btn.pack(side=tk.LEFT, expand=True, padx=(20, 5))
+
+        cancel_btn = ttk.Button(btn_frame, text="キャンセル", width=12, command=popup.destroy)
+        cancel_btn.pack(side=tk.LEFT, expand=True, padx=(5, 20))
 
     def _show_readme_help(self):
         """ README.md の内容を美しく整形して表示するサブウィンドウを起動する """
@@ -477,7 +597,7 @@ class DailyReportCheckerApp:
             return -1
 
     def _load_config(self):
-        """ 設定ファイル(config.json)から保存されたパス設定を読み込む """
+        """ 設定ファイル(config.json)から保存されたパス設定、及びチェック項目の有効設定を読み込む """
         try:
             config_dir = get_app_data_dir()
             config_path = os.path.join(config_dir, "config.json")
@@ -501,11 +621,22 @@ class DailyReportCheckerApp:
                             self.folder_listbox.insert(tk.END, d)
                             
                     self.template_file.set(data.get("template_file", ""))
+
+                    # チェック有効/無効設定の復元（互換性のためにデフォルトTrue）
+                    self.cfg_check_smart_scan.set(data.get("check_smart_scan", True))
+                    self.cfg_check_mng_no.set(data.get("check_mng_no", True))
+                    self.cfg_check_code_integrity.set(data.get("check_code_integrity", True))
+                    self.cfg_check_numeric_format.set(data.get("check_numeric_format", True))
+                    self.cfg_check_time_multiples.set(data.get("check_time_multiples", True))
+                    self.cfg_check_template_compare.set(data.get("check_template_compare", True))
+                    
+                    # 勤務時間単位の倍数をロード（無い場合はデフォルト "60"）
+                    self.cfg_time_multiple_val.set(data.get("time_multiple_val", "60"))
         except Exception as e:
             print(f"Failed to load config: {e}")
 
     def _save_config(self):
-        """ 設定ファイル(config.json)へ現在のパス設定を保存する """
+        """ 設定ファイル(config.json)へ現在のパス設定、及びチェック項目の有効設定を保存する """
         try:
             config_dir = get_app_data_dir()
             config_path = os.path.join(config_dir, "config.json")
@@ -515,7 +646,14 @@ class DailyReportCheckerApp:
             
             data = {
                 "target_dir": target_dirs,
-                "template_file": self.template_file.get()
+                "template_file": self.template_file.get(),
+                "check_smart_scan": self.cfg_check_smart_scan.get(),
+                "check_mng_no": self.cfg_check_mng_no.get(),
+                "check_code_integrity": self.cfg_check_code_integrity.get(),
+                "check_numeric_format": self.cfg_check_numeric_format.get(),
+                "check_time_multiples": self.cfg_check_time_multiples.get(),
+                "check_template_compare": self.cfg_check_template_compare.get(),
+                "time_multiple_val": self.cfg_time_multiple_val.get()
             }
             with open(config_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
@@ -605,9 +743,9 @@ class DailyReportCheckerApp:
         # 開始前に現在の設定パスを保存
         self._save_config()
 
-        # テンプレートファイルの確認と読み込み
+        # テンプレートファイルの確認と読み込み (テンプレート書き換えチェックが有効な場合のみ)
         temp_file_path = self.template_file.get().strip()
-        if temp_file_path:
+        if temp_file_path and self.cfg_check_template_compare.get():
             if not os.path.exists(temp_file_path):
                 messagebox.showerror("エラー", "指定された基準テンプレートファイルが存在しません。")
                 return
@@ -622,6 +760,7 @@ class DailyReportCheckerApp:
         self.cancel_requested = False
         self.start_btn.config(state=tk.DISABLED, bg="#9ca3af")
         self.stop_btn.config(state=tk.NORMAL, bg=self.accent_color)
+        self.settings_btn.config(state=tk.DISABLED)
         
         # リストとフィルターの初期化
         for item in self.tree.get_children():
@@ -798,6 +937,7 @@ class DailyReportCheckerApp:
         self.status_label.config(text=message)
         self.start_btn.config(state=tk.NORMAL, bg=self.primary_color)
         self.stop_btn.config(state=tk.DISABLED, bg="#9ca3af")
+        self.settings_btn.config(state=tk.NORMAL)
         
         if self.cancel_requested:
             messagebox.showinfo("中止", "処理を中断しました。")
@@ -897,13 +1037,24 @@ class DailyReportCheckerApp:
             if not self._should_check_sheet(sheet_name):
                 continue
 
-            self._scan_sheet_data_xlsx(sheet, sheet_name, errors)
-            self._check_code_integrity_xlsx(sheet, sheet_name, errors, start_row_val, end_row_val, cols_info)
-            self._check_time_multiples_xlsx(sheet, sheet_name, errors)
-            self._check_numeric_format_xlsx(sheet, sheet_name, errors, start_row_val, end_row_val, cols_info)
+            # 1. 氏名・日付等のスマートスキャンチェック
+            if self.cfg_check_smart_scan.get():
+                self._scan_sheet_data_xlsx(sheet, sheet_name, errors)
+
+            # 2. & 3. 管理No・コードの未入力整合性検証
+            if self.cfg_check_mng_no.get() or self.cfg_check_code_integrity.get():
+                self._check_code_integrity_xlsx(sheet, sheet_name, errors, start_row_val, end_row_val, cols_info)
+
+            # 5. 時間単位チェック (倍数可変)
+            if self.cfg_check_time_multiples.get():
+                self._check_time_multiples_xlsx(sheet, sheet_name, errors)
+
+            # 4. 数値フォーマットチェック (空白か数値以外の検証)
+            if self.cfg_check_numeric_format.get():
+                self._check_numeric_format_xlsx(sheet, sheet_name, errors, start_row_val, end_row_val, cols_info)
             
-            # 基準テンプレート比較
-            if sheet_name in self.template_cache:
+            # 6. 基準テンプレート比較
+            if self.cfg_check_template_compare.get() and sheet_name in self.template_cache:
                 self._compare_with_template_xlsx(sheet_name, errors, start_row_val, end_row_val, cols_info, filepath)
             
         wb.close()
@@ -923,7 +1074,7 @@ class DailyReportCheckerApp:
         # M(12) 〜 AQ(42)  ※0-indexed
         m_to_aq_indices = list(range(12, 43))
         
-        # チェック対象の列インデックスのセット
+        # チェック対象の列インデックス of セット
         check_col_indices = set([mng_idx, kat_idx, sag_idx] + m_to_aq_indices)
         check_col_indices = {c for c in check_col_indices if c >= 0}
         
@@ -948,7 +1099,7 @@ class DailyReportCheckerApp:
                         errors.append({
                             "sheet": sheet_name,
                             "cell": cell_pos,
-                            "type": "数値フォーマットエラー",
+                            "type": "数値フォーマットチェック",
                             "detail": f"空白か数値であるべきセルに、それ以外の値（'{val_str}'）が入力されています。"
                         })
 
@@ -1044,7 +1195,7 @@ class DailyReportCheckerApp:
                     errors.append({
                         "sheet": sheet_name,
                         "cell": cell_pos,
-                        "type": "フォーマット変更エラー",
+                        "type": "基準テンプレート不整合チェック",
                         "detail": f"入力セル以外の固定文字または数式が変更されています。[基準数式: '{val_temp}' / 対象数式: '{val_target}']"
                     })
 
@@ -1052,6 +1203,14 @@ class DailyReportCheckerApp:
     # M6〜AR6, M7〜AR7 時間チェック用ロジック (.xlsx 用)
     # ------------------------------------------
     def _check_time_multiples_xlsx(self, sheet, sheet_name, errors):
+        # ユーザー設定の倍数をパース
+        try:
+            multiple = int(self.cfg_time_multiple_val.get().strip())
+            if multiple <= 0:
+                multiple = 60
+        except ValueError:
+            multiple = 60
+
         # 6行目と7行目をチェック
         for r_idx in [6, 7]:
             # M(13)からAR(44)のセル値を取得。openpyxlは1始まり。
@@ -1074,24 +1233,24 @@ class DailyReportCheckerApp:
                         errors.append({
                             "sheet": sheet_name,
                             "cell": cell_pos,
-                            "type": "時間単位エラー",
-                            "detail": f"{r_idx}行目のセル値（{val_str}）は整数（0または60の倍数）ではありません。"
+                            "type": "勤務時間単位チェック",
+                            "detail": f"{r_idx}行目のセル値（{val_str}）は整数（0または{multiple}の倍数）ではありません。"
                         })
                         continue
                     
                     num_int = int(num_val)
-                    if num_int != 0 and num_int % 60 != 0:
+                    if num_int != 0 and num_int % multiple != 0:
                         errors.append({
                             "sheet": sheet_name,
                             "cell": cell_pos,
-                            "type": "時間単位エラー",
-                            "detail": f"{r_idx}行目のセル値（{num_int}）は0または60の倍数ではありません。"
+                            "type": "勤務時間単位チェック",
+                            "detail": f"{r_idx}行目のセル値（{num_int}）は0または{multiple}の倍数ではありません。"
                         })
                 except ValueError:
                     errors.append({
                         "sheet": sheet_name,
                         "cell": cell_pos,
-                        "type": "数値エラー",
+                        "type": "勤務時間単位チェック",
                         "detail": f"{r_idx}行目のセルに数値以外の値（'{val_str}'）が入力されています。"
                     })
 
@@ -1141,12 +1300,12 @@ class DailyReportCheckerApp:
             if 0 <= kat_idx < len(row):
                 kat_val = self._get_clean_value(row[kat_idx])
                     
-            sag_val = ""
+            text_sag_val = ""
             if 0 <= sag_idx < len(row):
-                sag_val = self._get_clean_value(row[sag_idx])
+                text_sag_val = self._get_clean_value(row[sag_idx])
                     
             is_kat_empty = (kat_val == "" or kat_val == "None" or kat_val == "0")
-            is_sag_empty = (sag_val == "" or sag_val == "None" or sag_val == "0")
+            is_sag_empty = (text_sag_val == "" or text_sag_val == "None" or text_sag_val == "0")
 
             # C〜H列 (インデックス 2〜7) の空白以外チェック
             c_to_h_has_value = False
@@ -1157,31 +1316,31 @@ class DailyReportCheckerApp:
                         c_to_h_has_value = True
                         break
 
-            # 新規要件: C,D,E,F,G,Hが空白以外で、B,I,Kが空白の場合にエラー
-            if c_to_h_has_value and not is_valid_mng and is_kat_empty and is_sag_empty:
+            # 新規要件: C,D,E,F,G,Hが空白以外で、B,I,Kが空白の場合にエラー (コード整合性チェックの一部)
+            if self.cfg_check_code_integrity.get() and c_to_h_has_value and not is_valid_mng and is_kat_empty and is_sag_empty:
                 col_letter = openpyxl.utils.get_column_letter(mng_idx + 1) if mng_idx >= 0 else "?"
                 cell_pos_str = f"{col_letter}{r_idx}"
                 errors.append({
                     "sheet": sheet_name,
                     "cell": cell_pos_str,
-                    "type": "必須項目未入力エラー",
+                    "type": "コード未入力チェック",
                     "detail": f"{r_idx}行目のC〜H列に記述がありますが、管理No(B)、型枠コード(I)、作業コード(K)がすべて未入力です。"
                 })
                 continue # 既存のエラーと重複しないようスキップ
 
-            # 要件1: 管理Noが未入力で、合計（実績）が0ではない場合にエラー
-            if not is_valid_mng and total_num > 0:
+            # 2. 管理No未入力チェックが有効な場合
+            if self.cfg_check_mng_no.get() and not is_valid_mng and total_num > 0:
                 col_letter = openpyxl.utils.get_column_letter(mng_idx + 1) if mng_idx >= 0 else "?"
                 cell_pos_str = f"{col_letter}{r_idx}"
                 errors.append({
                     "sheet": sheet_name,
                     "cell": cell_pos_str,
-                    "type": "管理No未入力エラー",
+                    "type": "管理No未入力チェック",
                     "detail": f"作業実績（合計 {total_num}）が入力されていますが、管理Noが未入力です。"
                 })
 
-            # 要件2: 管理Noが入力されている場合、コードの未入力チェック
-            elif is_valid_mng:
+            # 3. コード未入力チェックが有効な場合
+            elif self.cfg_check_code_integrity.get() and is_valid_mng:
                 # 型枠コード、あるいは作業コードの「両方とも」が未入力の場合にエラーとする
                 if is_kat_empty and is_sag_empty:
                     col_letter = openpyxl.utils.get_column_letter(mng_idx + 1) if mng_idx >= 0 else "?"
@@ -1189,7 +1348,7 @@ class DailyReportCheckerApp:
                     errors.append({
                         "sheet": sheet_name,
                         "cell": cell_pos_str,
-                        "type": "コード未入力エラー",
+                        "type": "コード未入力チェック",
                         "detail": f"管理No '{mng_val}' が指定されていますが、型枠コードと作業コードの両方が未入力です。"
                     })
 
@@ -1233,7 +1392,7 @@ class DailyReportCheckerApp:
                             errors.append({
                                 "sheet": sheet_name,
                                 "cell": cell_pos_str,
-                                "type": "日付フォーマットエラー",
+                                "type": "氏名・日付等スマートスキャン",
                                 "detail": f"「{item_type}」セルの{direction}に有効な日付が入力されていません。入力値: '{val_str}'"
                             })
                 validated = True
@@ -1244,7 +1403,7 @@ class DailyReportCheckerApp:
             errors.append({
                 "sheet": sheet_name,
                 "cell": f"{col_letter}{r}",
-                "type": "未入力項目",
+                "type": "氏名・日付等スマートスキャン",
                 "detail": f"「{item_type}」セルの周辺（右隣または下）に有効なデータが入力されていません。"
             })
 
@@ -1269,7 +1428,7 @@ class DailyReportCheckerApp:
                     errors.append({
                         "sheet": sheet_name,
                         "cell": cell_pos_str,
-                        "type": "工数未入力",
+                        "type": "氏名・日付等スマートスキャン",
                         "detail": "業務記述行ですが、作業時間(工数)が空欄になっています。"
                     })
                 consecutive_empty += 1
@@ -1281,21 +1440,21 @@ class DailyReportCheckerApp:
                         errors.append({
                             "sheet": sheet_name,
                             "cell": cell_pos_str,
-                            "type": "工数負数エラー",
-                            "detail": f"作業時間に負の値が入力されています. 入力値: {num_val}"
+                            "type": "氏名・日付等スマートスキャン",
+                            "detail": f"作業時間に負の値が入力されています。入力値: {num_val}"
                         })
                     elif num_val > 24:
                         errors.append({
                             "sheet": sheet_name,
                             "cell": cell_pos_str,
-                            "type": "工数過大エラー",
+                            "type": "氏名・日付等スマートスキャン",
                             "detail": f"1日の作業工数として過大な時間(24h超)が入力されています。入力値: {num_val}"
                         })
                 except ValueError:
                     errors.append({
                         "sheet": sheet_name,
                         "cell": cell_pos_str,
-                        "type": "数値フォーマットエラー",
+                        "type": "氏名・日付等スマートスキャン",
                         "detail": f"時間入力欄に数字以外の値が入力されています。入力値: '{val}'"
                     })
             r += 1

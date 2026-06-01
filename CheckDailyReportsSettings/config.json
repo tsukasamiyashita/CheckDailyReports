@@ -3,5 +3,12 @@
         "G:\\マイドライブ\\python\\テスト\\日報入力チェック\\テスト\\リンク\\頚城\\05",
         "G:\\マイドライブ\\python\\テスト\\日報入力チェック\\テスト\\リンク\\黒井\\05"
     ],
-    "template_file": "G:\\マイドライブ\\python\\テスト\\日報入力チェック\\テスト\\フォーマット\\日報フォーマット.xlsm"
+    "template_file": "G:\\マイドライブ\\python\\テスト\\日報入力チェック\\テスト\\フォーマット\\日報基準テンプレート.xlsm",
+    "check_smart_scan": true,
+    "check_mng_no": true,
+    "check_code_integrity": true,
+    "check_numeric_format": true,
+    "check_time_multiples": true,
+    "check_template_compare": true,
+    "time_multiple_val": "60"
 }
