@@ -667,7 +667,6 @@ class DailyReportCheckerApp:
 
     def _on_closing(self):
         """ アプリ終了時の処理 """
-        self._save_config()
         self.root.destroy()
 
     def _add_folder(self):
@@ -739,9 +738,6 @@ class DailyReportCheckerApp:
             'sag': self._col_to_index(self.sag_col_var.get()),
             'tot': self._col_to_index(self.tot_col_var.get())
         }
-
-        # 開始前に現在の設定パスを保存
-        self._save_config()
 
         # テンプレートファイルの確認と読み込み (テンプレート書き換えチェックが有効な場合のみ)
         temp_file_path = self.template_file.get().strip()
@@ -1110,6 +1106,15 @@ class DailyReportCheckerApp:
         """セル位置 (r, c) [0-indexed] がユーザーの入力可能エリア（除外対象）か判定する"""
         start_row = start_row_val - 1
         end_row = end_row_val if end_row_val is not None else 100000
+
+        # 新規除外設定：M3からAQ3およびM4をテンプレート比較エラーから除外
+        # M3からAQ3: 3行目 (0-indexedで r == 2), M(13列目, c == 12) 〜 AQ(43列目, c == 42)
+        if r == 2 and (12 <= c <= 42):
+            return True
+            
+        # M4: 4行目 (0-indexedで r == 3), M(13列目, c == 12)
+        if r == 3 and c == 12:
+            return True
 
         # 指定されたテンプレート厳格チェック対象範囲は、入力セル（除外対象）から完全に除外する（必ず False を返す）
         # 1. G2からAS6: 2 <= 行 <= 6, G(7列) <= 列 <= AS(45列) (0-indexed: 1 <= r <= 5, 6 <= c <= 44)
