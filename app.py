@@ -41,14 +41,14 @@ def get_app_data_dir():
 class DailyReportCheckerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("CheckDailyReports-v1.1.0")
+        self.root.title("CheckDailyReports-v1.2.0")
         self.root.geometry("900x750")
         self.root.minsize(800, 600)
         
         # Windowsのタスクバーにカスタムアイコンを正しく表示するための処理
         try:
             import ctypes
-            myappid = 'tsukasamiyashita.checkdailyreports.checker.v1.1.0'
+            myappid = 'tsukasamiyashita.checkdailyreports.checker.v1.2.0'
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
         except Exception:
             pass
@@ -148,7 +148,7 @@ class DailyReportCheckerApp:
         
         ver_label = tk.Label(
             header_frame,
-            text="v1.1.0",
+            text="v1.2.0",
             font=("Yu Gothic UI", 10, "italic"),
             bg=self.bg_color,
             fg="#6b7280"
@@ -293,6 +293,9 @@ class DailyReportCheckerApp:
 
         clear_filter_btn = ttk.Button(filter_bar, text="フィルター解除", command=self._clear_filter)
         clear_filter_btn.pack(side=tk.LEFT)
+
+        print_btn = ttk.Button(filter_bar, text="結果を印刷...", command=self._print_results)
+        print_btn.pack(side=tk.RIGHT)
 
         # スクロールバー
         scroll_y = ttk.Scrollbar(list_frame, orient=tk.VERTICAL)
@@ -983,6 +986,102 @@ class DailyReportCheckerApp:
 
         close_btn = ttk.Button(frm, text="閉じる", command=popup.destroy)
         close_btn.grid(row=5, column=0, columnspan=2, pady=(15, 0))
+
+    def _print_results(self):
+        """ 結果一覧をExcelバックグラウンド処理に出力し、ネイティブな印刷プレビューダイアログを呼び出す """
+        items = self.tree.get_children()
+        if not items:
+            messagebox.showinfo("情報", "印刷する結果がありません。")
+            return
+            
+        try:
+            import win32com.client
+        except ImportError:
+            messagebox.showerror("エラー", "印刷機能を使用するには 'pywin32' パッケージが必要です。")
+            return
+
+        self.status_label.config(text="印刷プレビューを準備中...")
+        self.root.update()
+
+        try:
+            # Excelをバックグラウンドで起動
+            excel = win32com.client.Dispatch("Excel.Application")
+            excel.Visible = False
+            excel.DisplayAlerts = False
+            
+            wb = excel.Workbooks.Add()
+            ws = wb.Sheets(1)
+            ws.Name = "エラーチェック結果"
+            
+            # ヘッダー書き込み
+            headers = ["ファイル名 / パス", "シート名", "セル位置", "エラー区分", "エラー詳細内容"]
+            for col, header in enumerate(headers, 1):
+                ws.Cells(1, col).Value = header
+                
+            # データ書き込み
+            for row, item_id in enumerate(items, 2):
+                values = self.tree.item(item_id, "values")
+                for col, val in enumerate(values, 1):
+                    ws.Cells(row, col).Value = str(val)
+                    
+            # 書式設定（罫線とレイアウト）
+            used_range = ws.UsedRange
+            
+            # 罫線を引く (xlContinuous=1)
+            for border_id in range(7, 13):
+                used_range.Borders(border_id).LineStyle = 1
+                used_range.Borders(border_id).Weight = 2
+                
+            # ヘッダー行の装飾
+            header_range = ws.Range(ws.Cells(1, 1), ws.Cells(1, 5))
+            header_range.Interior.Color = 14277081 # 薄いグレー
+            header_range.Font.Bold = True
+            
+            # 列幅調整と折り返し設定
+            ws.Columns.AutoFit()
+            if ws.Columns(5).ColumnWidth > 50:
+                ws.Columns(5).ColumnWidth = 50
+                ws.Columns(5).WrapText = True
+                ws.Rows.AutoFit()
+
+            # ページ設定 (印刷用: A4横、1ページ幅に収める)
+            page_setup = ws.PageSetup
+            page_setup.Orientation = 2 # xlLandscape
+            page_setup.Zoom = False
+            page_setup.FitToPagesWide = 1
+            page_setup.FitToPagesTall = False
+            page_setup.CenterHorizontally = True
+            page_setup.LeftHeader = "&B日報入力ミス自動チェック - 結果一覧&B"
+            page_setup.RightHeader = f"出力日時: {datetime.now().strftime('%Y/%m/%d %H:%M')}"
+            
+            # プレビュー表示
+            excel.Visible = True
+            try:
+                import ctypes
+                hwnd = excel.Hwnd
+                ctypes.windll.user32.SetForegroundWindow(hwnd)
+            except Exception:
+                pass
+                
+            # 印刷ダイアログ（プレビュー画面）の呼び出し。ここでユーザー操作を待機
+            ws.PrintPreview()
+            
+            # プレビューが閉じられたらブックを破棄してExcelを終了
+            wb.Close(SaveChanges=False)
+            if excel.Workbooks.Count == 0:
+                excel.Quit()
+                
+            self.status_label.config(text="印刷プレビューを終了しました。")
+                
+        except Exception as e:
+            messagebox.showerror("エラー", f"印刷プレビューの起動に失敗しました:\n{str(e)}\n\n※Excelが起動できる状態か確認してください。")
+            try:
+                if 'wb' in locals():
+                    wb.Close(SaveChanges=False)
+                if 'excel' in locals():
+                    excel.Quit()
+            except:
+                pass
 
     # ==========================================
     # ヘルパーメソッド
